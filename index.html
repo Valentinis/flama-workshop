@@ -2299,8 +2299,8 @@ if(ui.showAdd&&ui.addForm.cid){
 // Reset button
 (function(){
   var rb=document.getElementById('reset-bar');
-  if(rb&&window.location.hash==='#reset'){
-    rb.innerHTML='<div style="padding:8px 16px;background:#d63b3b;color:#fff;text-align:center;font-size:13px;cursor:pointer;" onclick="doResetAll()">⚠️ Borrar todos los datos y empezar de cero</div>';
+  if(rb){
+    rb.innerHTML='<div style="text-align:right;padding:4px 16px 0;"><span style="font-size:11px;color:var(--text3);cursor:pointer;" onclick="doResetAll()">borrar datos</span></div>';
   }
 })();
 
