@@ -453,11 +453,13 @@ var fbSaveTimer = null;
 function fbSetField(val){return {stringValue: typeof val==='string'?val:JSON.stringify(val)};}
 
 function doResetAll(){
-  if(!confirm('Borrar todos los datos?'))return;
-  fetch(FB_URL+'?key='+FB_KEY,{method:'DELETE'}).catch(function(){});
+  if(!confirm('Borrar TODOS los datos de ejemplo y empezar de cero?'))return;
+  // Clear localStorage
   localStorage.clear();
-  location.hash='';
-  location.reload();
+  // Delete Firebase document
+  fetch(FB_URL+'?key='+FB_KEY,{method:'DELETE'})
+    .then(function(){location.href=location.href.split('#')[0];})
+    .catch(function(){location.href=location.href.split('#')[0];});
 }
 function save(){
   try{
@@ -2300,7 +2302,7 @@ if(ui.showAdd&&ui.addForm.cid){
 (function(){
   var rb=document.getElementById('reset-bar');
   if(rb){
-    rb.innerHTML='<div style="text-align:right;padding:4px 16px 0;"><span style="font-size:11px;color:var(--text3);cursor:pointer;" onclick="doResetAll()">borrar datos</span></div>';
+    rb.innerHTML='<div style="padding:6px 16px 0;text-align:right;"><button onclick="doResetAll()" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🗑 Borrar todos los datos</button></div>';
   }
 })();
 
