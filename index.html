@@ -597,10 +597,6 @@ if(!s.flamMonthCount)s.flamMonthCount=0;
 return s;
 });
 }catch(e){}
-// Remove corrupted flamateur/recharge students (had duplicate ID bug)
-sts=sts.filter(function(s){
-return s.studentType!==‘flamateur’&&s.studentType!==‘recharge’;
-});
 // Remove duplicate IDs - keep first occurrence
 var seenIds={};
 sts=sts.filter(function(s){
@@ -933,6 +929,9 @@ var totalAlumnos=sts.filter(function(s){return s.status!==‘deleted’&&s.stude
 if(ui.showInteresados)h+=renderInteresadosForm();
 else if(ui.showAdd)h+=renderAddForm();
 else{
+if(totalAlumnos===0){
+h+=’<div class="empty" style="padding:40px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">🏺</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Sin alumnos todavía</div><div style="font-size:13px;color:var(--text2);">Pulsa + Nuevo alumno para añadir el primero</div></div>’;
+}
 var flt=ui.alumnosFilter;
 var counts={active:active.length,flam:flamateurs.length,pausa:pausa.length+pausaSched.length,recharge:recharge.length,gift:gift.length,pend:pend.length+leaving.length,del:del.length};
 var pills=[
@@ -2300,9 +2299,7 @@ rb.innerHTML=’<div style="padding:8px 16px;background:#d63b3b;color:#fff;text-
 })();
 
 // Render immediately with localStorage data (instant)
-try{render();}catch(e){
-document.getElementById(‘content’).innerHTML=’<div style="padding:20px;color:red;font-size:13px;">Error al arrancar: ‘+e.message+’<br>’+e.stack+’</div>’;
-}
+render();
 // Then sync with Firebase in background
 loadFromFirebase(function(){try{render();}catch(e){console.warn(‘render error:’,e);}});
 // Set sticky bar top offset based on actual header height
