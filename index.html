@@ -569,7 +569,7 @@ var collapsed={};
 
 // ─── UI STATE ─────────────────────────────────────────────────────────────────
 var ui={
-tab:'alumnos',modal:null,mview:'actions',moveTarget:null,
+tab:'alumnos',modal:null,mview:'actions',moveTarget:null,editNameF:{name:'',handle:''},
 addForm:{name:'',handle:'',tipo:'torno',cuota:100,err:'',stype:'regular',cid:null,joinNow:true,joinDate:today(),sug:''},
 weekOff:0,curM:new Date().getMonth(),curY:new Date().getFullYear(),statsModal:false,statsM:new Date().getMonth(),statsY:new Date().getFullYear(),
 cm:null,csub:null,csel:null,
@@ -594,7 +594,7 @@ var uTimer=null,uSnap=null;
 // ─── PERSISTENCE ──────────────────────────────────────────────────────────────
 // save() defined above with Firebase sync
 function snapData(){return{sts:JSON.parse(JSON.stringify(sts)),pagos:JSON.parse(JSON.stringify(pagos)),ovs:JSON.parse(JSON.stringify(ovs))};}
-function showU(lbl,sn){uSnap=sn;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='<div class="ubar"><span>'+lbl+'</span><button class="ubtn" onclick="doUndo()">Deshacer</button></div>';uTimer=setTimeout(function(){document.getElementById('uroot').innerHTML='';uSnap=null;},5000);}
+function showU(lbl,sn){uSnap=sn;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='<div class="ubar"><span>'+lbl+'</span><button class="ubtn" onclick="doUndo()">Deshacer</button><button class="ubtn" onclick="document.getElementById(&apos;uroot&apos;).innerHTML=&apos;&apos;" style="margin-left:4px;">✕</button></div>';uTimer=setTimeout(function(){document.getElementById('uroot').innerHTML='';uSnap=null;},5000);}
 function doUndo(){if(!uSnap)return;sts=uSnap.sts;pagos=uSnap.pagos;ovs=uSnap.ovs;uSnap=null;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='';save();render();}
 function addH(sid,type,text){var s=sts.find(function(x){return x.id==sid;});if(s){if(!s.history)s.history=[];s.history.unshift({date:today(),type:type,text:text});}}
 function hCol(t){return t==='baja'?'#d63b3b':t==='recuperacion'?'#1D9E75':t==='pausa'?'#c07800':t==='pago'?'#185FA5':t==='gift'?'#7a1a9a':'#1D9E75';}
@@ -1485,6 +1485,15 @@ content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=
 +(s.rec>0?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><input type=“checkbox” id=“cv-chk”'+(rf.conv?' checked':'')+' onchange=“ui.reactF.conv=this.checked”><label for="cv-chk" style="font-size:13px;color:var(--text2);">Convalidar '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'</label></div>':'')
 +'<div class="btn-row"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">Cancelar</button><button class="btn btn-green" onclick="doReactivar()">Reactivar</button></div>';
 }
+else if(ui.mview==='editname'){
+var enf=ui.editNameF;
+content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">← Volver</button></div>'
++'<span class="flbl">Nombre</span>'
++'<input type="text" value="'+enf.name+'" oninput="ui.editNameF.name=this.value" style="margin-bottom:8px;">'
++'<span class="flbl">Identificador (@)</span>'
++'<div class="ipfx"><span>@</span><input type="text" value="'+enf.handle+'" oninput="ui.editNameF.handle=this.value.toLowerCase().replace(/[^a-z0-9]/g,&apos;&apos;)"></div>'
++'<div class="btn-row"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">Cancelar</button><button class="btn btn-p" onclick="doEditName()">Guardar</button></div>';
+}
 else if(ui.mview==='move'){
 content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">← Volver</button></div>'
 +CLS.filter(function(x){return x.id!==s.classId;}).map(function(x){return csiItem(x,ui.moveTarget,s.tipo,null,'ui.moveTarget');}).join('')
@@ -1572,7 +1581,8 @@ content+='<div class="arow" onclick="doCancelSchedPausa()"><div class="aico" sty
 } else {
 content+='<div class="arow" onclick="ui.mview=&apos;pausa&apos;;renderM()"><div class="aico" style="background:#fff3e0;">⏸</div><div><div class="atxt">Poner en pausa</div><div class="asub">Indica fechas y motivo</div></div></div>';
 }
-content+='<div class="arow" onclick="ui.mview=&apos;move&apos;;renderM()"><div class="aico" style="background:#e8f0fe;">→</div><div><div class="atxt">Cambiar de grupo</div><div class="asub">Cambio permanente</div></div></div>'
+content+='<div class="arow" onclick="ui.editNameF={name:s.name,handle:s.handle};ui.mview=&apos;editname&apos;;renderM()"><div class="aico" style="background:#f0f0f0;">✏️</div><div><div class="atxt">Editar nombre</div></div></div>'
++'<div class="arow" onclick="ui.mview=&apos;move&apos;;renderM()"><div class="aico" style="background:#e8f0fe;">→</div><div><div class="atxt">Cambiar de grupo</div><div class="asub">Cambio permanente</div></div></div>'
 +'<div class="arow" onclick="ui.mview=&apos;tipo&apos;;renderM()"><div class="aico" style="background:#f3e8fd;">⇄</div><div><div class="atxt">Cambiar modalidad</div></div></div>';
 } else if(s.status==='pausa'){
 if(od)content+='<div class="abar aw" style="margin-bottom:8px;">⏰ Pausa vencida hace '+od+' día'+(od>1?'s':'')+'</div>';
@@ -1617,7 +1627,7 @@ if(cm.addMode){
   function getAvail(type){
     if(type==='recuperacion')return sortN(sts.filter(function(s){return isActive(s)&&s.rec>0&&s.classId!==cm.cid&&!getOvs(s.id,cm.monStr).some(function(o){return(o.type==='recuperacion'||o.type==='gift')&&o.toCid===cm.cid;});}));
     if(type==='cambio')return sortN(sts.filter(function(s){return isActive(s)&&s.classId!==cm.cid&&!getOvs(s.id,cm.monStr).some(function(o){return o.toCid===cm.cid;});}));
-    if(type==='gift')return sortN(sts.filter(function(s){return s.studentType==='gift'&&s.giftClassesLeft>0;}));
+    if(type==='gift')return sortN(sts.filter(function(s){return s.studentType==='gift'&&s.giftActivated&&s.giftClassesLeft>0;}));
     if(type==='flamateur')return sortN(sts.filter(function(s){return s.studentType==='flamateur'&&s.status!=='deleted'&&!getOvs(s.id,cm.monStr).some(function(o){return o.type==='flamateur'&&o.toCid===cm.cid;});}));
     if(type==='recharge')return sortN(sts.filter(function(s){return s.studentType==='recharge'&&s.status!=='deleted'&&!getOvs(s.id,cm.monStr).some(function(o){return o.type==='recharge'&&o.toCid===cm.cid;});}));
     return[];
@@ -1726,6 +1736,7 @@ if(isAbs||isAbsM||isVisit||isGift2){
 }
 if(!isAbs&&!isAbsM&&!isVisit&&!isGift2&&!isRec2&&!isFlamV2&&!isRechargeV2){
   rows+='<div class="arow" onclick="doMarcarBaja('+cm.sid+',\''+ cm.monStr +'\','+cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">No viene esta clase</div><div class="asub">+1 recuperación pendiente</div></div></div>'
+  +(s3.rec>0?'<div class="arow" onclick="doRecAdelanto('+cm.sid+',\''+ cm.monStr +'\','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">−1</div><div><div class="atxt">Recuperar por adelantado</div><div class="asub">Viene y descuenta 1 pendiente ('+s3.rec+' pendientes)</div></div></div>':'')
     +'<div class="arow" onclick="ui.csub=&apos;move&apos;;ui.csel=null;renderM()"><div class="aico" style="background:#e8f0fe;">→</div><div><div class="atxt">Va a otra clase esta semana</div></div></div>';
 }
 
@@ -1854,7 +1865,7 @@ var ca=ui.cadd;
 function getAvail2(type){
 if(type==='recuperacion')return sortN(sts.filter(function(s){return isActive(s)&&s.rec>0&&s.classId!==cid&&!getOvs(s.id,monStr).some(function(o){return(o.type==='recuperacion'||o.type==='gift')&&o.toCid===cid;});}));
 if(type==='cambio')return sortN(sts.filter(function(s){return isActive(s)&&s.classId!==cid&&!getOvs(s.id,monStr).some(function(o){return o.toCid===cid;});}));
-if(type==='gift')return sortN(sts.filter(function(s){return s.studentType==='gift'&&s.giftClassesLeft>0;}));
+if(type==='gift')return sortN(sts.filter(function(s){return s.studentType==='gift'&&s.giftActivated&&s.giftClassesLeft>0;}));
 return[];
 }
 var avail=getAvail2(ca.type);
@@ -1974,8 +1985,32 @@ save();closeSM();showU(s.name+' reactivado',sn);
 }
 function doReincorp(){var f=ui.reincF;if(!f.cid)return;var sn=snapData();var s=sts.find(function(x){return x.id==ui.modal;});var c=CLS.find(function(x){return x.id===f.cid;});var jd=f.joinNow?null:f.joinDate;s.status='active';s.studentType='regular';s.classId=f.cid;s.tipo=f.tipo;s.cuota=f.cuota;s.leaveDate=null;s.joinDate=jd;s.pausaScheduled=false;addH(s.id,'alta','Reincorporación'+(jd?' a partir del '+fmtDL(jd):'')+' — '+c.day+' '+c.start);save();closeSM();showU(s.name+' reincorporado',sn);}
 function askDel(){var s=sts.find(function(x){return x.id==ui.modal;});showConf('Eliminar alumno','¿Dar de baja a '+s.name+'? Pasará a Eliminados.',function(){var sn=snapData();s.status='deleted';s.studentType='deleted';save();ui.confirm=null;closeSM();showU(s.name+' eliminado',sn);},true);}
+function doEditName(){
+  var sn=snapData();
+  var s=sts.find(function(x){return x.id==ui.modal;});
+  if(!s)return;
+  var newName=ui.editNameF.name.trim();
+  var newHandle=ui.editNameF.handle.trim();
+  if(!newName||!newHandle)return;
+  if(newHandle!==s.handle&&sts.some(function(x){return x.handle===newHandle&&x.id!==s.id;})){
+    alert('@'+newHandle+' ya está en uso');return;
+  }
+  s.name=newName;s.handle=newHandle;
+  addH(s.id,'alta','Nombre actualizado: '+newName+' (@'+newHandle+')');
+  save();closeSM();showU('Nombre actualizado',sn);
+}
 function doChangeGroup(){if(!ui.moveTarget)return;var s=sts.find(function(x){return x.id==ui.modal;});showConf('Cambiar de grupo','¿Mover a '+s.name+' de '+clsName(s.classId)+' a '+clsName(ui.moveTarget)+'?',function(){var sn=snapData();addH(s.id,'cambio_grupo','Cambio: '+clsName(s.classId)+' → '+clsName(ui.moveTarget));s.classId=ui.moveTarget;save();ui.confirm=null;closeSM();showU('Grupo cambiado — '+s.name,sn);},false);}
 function doChangeTipo(){var s=sts.find(function(x){return x.id==ui.modal;});var nt=s.tipo==='torno'?'modelado':'torno';showConf('Cambiar modalidad','¿Cambiar a '+s.name+' de '+s.tipo+' a '+nt+'?',function(){var sn=snapData();addH(s.id,'cambio_modalidad','Cambio: '+s.tipo+' → '+nt);s.tipo=nt;save();ui.confirm=null;closeSM();showU('Modalidad cambiada — '+s.name,sn);},false);}
+function doRecAdelanto(sid,monStr,cid){
+  sid=+sid;cid=+cid;
+  var sn=snapData();
+  var s=sts.find(function(x){return x.id==sid;});
+  var c=CLS.find(function(x){return x.id===cid;});
+  if(!s||s.rec<=0)return;
+  s.rec--;
+  addH(sid,'recuperacion','Recuperación por adelantado — '+c.day+' '+c.start+' (semana '+monStr+')');
+  save();closeCM();showU('Recuperación — @'+s.handle,sn);
+}
 function doMarcarBaja(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});s.rec=(s.rec||0)+1;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+')');ovs=ovs.filter(function(o){return!(o.sid===sid&&o.week===monStr&&o.fromCid===cid);});ovs.push({sid:sid,week:monStr,fromCid:cid,toCid:-1,type:'baja'});save();closeCM();showU('Baja — @'+s.handle,sn);}
 function openReactivar(cid,tipo){
   ui.mview='reactivar';
