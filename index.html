@@ -2001,7 +2001,15 @@ function doEditName(){
   save();closeSM();showU('Nombre actualizado',sn);
 }
 function doChangeGroup(){if(!ui.moveTarget)return;var s=sts.find(function(x){return x.id==ui.modal;});showConf('Cambiar de grupo','¿Mover a '+s.name+' de '+clsName(s.classId)+' a '+clsName(ui.moveTarget)+'?',function(){var sn=snapData();addH(s.id,'cambio_grupo','Cambio: '+clsName(s.classId)+' → '+clsName(ui.moveTarget));s.classId=ui.moveTarget;save();ui.confirm=null;closeSM();showU('Grupo cambiado — '+s.name,sn);},false);}
-function doChangeTipo(){var s=sts.find(function(x){return x.id==ui.modal;});var nt=s.tipo==='torno'?'modelado':'torno';showConf('Cambiar modalidad','¿Cambiar a '+s.name+' de '+s.tipo+' a '+nt+'?',function(){var sn=snapData();addH(s.id,'cambio_modalidad','Cambio: '+s.tipo+' → '+nt);s.tipo=nt;save();ui.confirm=null;closeSM();showU('Modalidad cambiada — '+s.name,sn);},false);}
+function doChangeTipo(){
+  var sn=snapData();
+  var s=sts.find(function(x){return x.id==ui.modal;});
+  if(!s)return;
+  var nt=s.tipo==='torno'?'modelado':'torno';
+  addH(s.id,'cambio_modalidad','Cambio: '+s.tipo+' → '+nt);
+  s.tipo=nt;
+  save();closeSM();showU('Modalidad cambiada — '+s.name,sn);
+}
 function doRecAdelanto(sid,monStr,cid){
   sid=+sid;cid=+cid;
   var sn=snapData();
