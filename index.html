@@ -1491,7 +1491,7 @@ content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=
 +'<span class="flbl">Nombre</span>'
 +'<input type="text" value="'+enf.name+'" oninput="ui.editNameF.name=this.value" style="margin-bottom:8px;">'
 +'<span class="flbl">Identificador (@)</span>'
-+'<div class="ipfx"><span>@</span><input type="text" value="'+enf.handle+'" oninput="ui.editNameF.handle=this.value.toLowerCase().replace(/[^a-z0-9]/g,&apos;&apos;)"></div>'
++'<div class="ipfx"><span>@</span><input type="text" value="'+enf.handle+'" oninput="ui.editNameF.handle=cleanHandle(this.value)"></div>'
 +'<div class="btn-row"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">Cancelar</button><button class="btn btn-p" onclick="doEditName()">Guardar</button></div>';
 }
 else if(ui.mview==='move'){
@@ -1553,7 +1553,8 @@ content='<div class="arow" onclick="ui.mview=&apos;history&apos;;renderM()"><div
 var flamCount=flamCountMonth(s.id);
 content='<div class="abar ag" style="margin-bottom:10px;">Flamateur · <b>'+flamCount+'</b> clase'+(flamCount!==1?'s':'')+' este mes · 150€/mes</div>';
 content+='<div class="arow" onclick="ui.mview=&apos;history&apos;;renderM()"><div class="aico" style="background:var(--bg-subtle);">📋</div><div><div class="atxt">Ver historial</div><div class="asub">Clases, cambios</div></div></div>';
-content+='<div class="arow adanger" onclick="ui.mview=&apos;leave&apos;;renderM()"><div class="aico" style="background:#ffeaea;">🗑</div><div><div class="atxt">Dar de baja</div></div></div>';
+content+='<div class="arow adanger" onclick="ui.mview=&apos;leave&apos;;renderM()"><div class="aico" style="background:#ffeaea;">🗑</div><div><div class="atxt">Dar de baja</div></div></div>'
++'<div class="arow adanger" onclick="askDelPermanente()"><div class="aico" style="background:#ffeaea;">💀</div><div><div class="atxt">Eliminar permanentemente</div><div class="asub">Borra el alumno de la app</div></div></div>';
 } else if(s.studentType==='recharge'){
 var rcTotal=s.rechargeTotal||0;
 var rcUnpaid=s.rechargeUnpaid||0;
@@ -1985,7 +1986,26 @@ addH(s.id,'alta','Reactivado — '+c.day+' '+c.start+', '+s.tipo+'. '+rem3+' cla
 save();closeSM();showU(s.name+' reactivado',sn);
 }
 function doReincorp(){var f=ui.reincF;if(!f.cid)return;var sn=snapData();var s=sts.find(function(x){return x.id==ui.modal;});var c=CLS.find(function(x){return x.id===f.cid;});var jd=f.joinNow?null:f.joinDate;s.status='active';s.studentType='regular';s.classId=f.cid;s.tipo=f.tipo;s.cuota=f.cuota;s.leaveDate=null;s.joinDate=jd;s.pausaScheduled=false;addH(s.id,'alta','Reincorporación'+(jd?' a partir del '+fmtDL(jd):'')+' — '+c.day+' '+c.start);save();closeSM();showU(s.name+' reincorporado',sn);}
-function askDel(){var s=sts.find(function(x){return x.id==ui.modal;});showConf('Eliminar alumno','¿Dar de baja a '+s.name+'? Pasará a Eliminados.',function(){var sn=snapData();s.status='deleted';s.studentType='deleted';save();ui.confirm=null;closeSM();showU(s.name+' eliminado',sn);},true);}
+function askDel(){
+  var s=sts.find(function(x){return x.id==ui.modal;});
+  if(!s)return;
+  showConf('Eliminar alumno','¿Dar de baja a '+s.name+'? Pasará a Eliminados.',function(){
+    var sn=snapData();s.status='deleted';s.studentType='deleted';
+    save();ui.confirm=null;closeSM();showU(s.name+' eliminado',sn);
+  },true);
+}
+function askDelPermanente(){
+  var s=sts.find(function(x){return x.id==ui.modal;});
+  if(!s)return;
+  showConf('Eliminar permanentemente','¿Borrar a '+s.name+' de la app para siempre? No se puede deshacer.',function(){
+    var sn=snapData();
+    sts=sts.filter(function(x){return x.id!==s.id;});
+    ovs=ovs.filter(function(o){return o.sid!==s.id;});
+    pagos=pagos.filter(function(p){return p.sid!==s.id;});
+    save();ui.confirm=null;closeSM();showU(s.name+' eliminado permanentemente',sn);
+  },true);
+}
+function cleanHandle(v){return v.toLowerCase().replace(/[^a-z0-9]/g,'');}
 function doEditName(){
   var sn=snapData();
   var s=sts.find(function(x){return x.id==ui.modal;});
