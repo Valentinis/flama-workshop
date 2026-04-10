@@ -1730,8 +1730,9 @@ if(isAbs||isAbsM||isVisit||isGift2){
     rows+='<div class="arow" onclick="doCancelOvVisit('+cm.sid+',\''+ cm.monStr +'\','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">↩</div><div><div class="atxt">Cancelar cambio</div><div class="asub">Asiste a su clase original ('+origName+')</div></div></div>';
     rows+='<div class="arow" onclick="doCancelCambioYBaja('+cm.sid+',\''+ cm.monStr +'\','+cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">Cancelar clase (+1 pendiente)</div><div class="asub">Cancela el cambio y la clase original</div></div></div>';
   } else {
-    var subTxt=isAbs?'Cancelar baja puntual':isGift2?'Cancelar gift card':'Cancelar cambio';
-    rows+='<div class="arow" onclick="doCancelOv('+cm.sid+',\''+ cm.monStr +'\','+isAbs+','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">↩</div><div><div class="atxt">Sí viene esta clase</div><div class="asub">'+subTxt+'</div></div></div>';
+    var mainTxt=isGift2?'Cancelar clase de gift card':isAbs?'Sí viene esta clase':'Sí viene esta clase';
+var subTxt=isAbs?'Cancelar baja puntual':isGift2?'Devuelve 1 clase a la gift card':'Cancelar cambio';
+    rows+='<div class="arow" onclick="doCancelOv('+cm.sid+',\''+ cm.monStr +'\','+isAbs+','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">↩</div><div><div class="atxt">'+mainTxt+'</div><div class="asub">'+subTxt+'</div></div></div>';
   }
 }
 if(!isAbs&&!isAbsM&&!isVisit&&!isGift2&&!isRec2&&!isFlamV2&&!isRechargeV2){
@@ -2283,10 +2284,7 @@ if(ui.showAdd&&ui.addForm.cid){
 
 // Reset button
 (function(){
-  var rb=document.getElementById('reset-bar');
-  if(rb){
-    rb.innerHTML='<div style="padding:6px 16px 0;text-align:right;"><button onclick="doResetAll()" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🗑 Borrar todos los datos</button></div>';
-  }
+  // reset bar removed
 })();
 
 // Render immediately with localStorage data (instant)
