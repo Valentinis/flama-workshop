@@ -1417,7 +1417,7 @@ function renderConfirm(){
 var c=ui.confirm;
 return '<div class="moverlay" onclick="ui.confirm=null;renderM()"><div class="csheet" onclick="event.stopPropagation()">'
 +'<div class="mhandle"></div><div class="ctitle">'+c.title+'</div><div class="cbody">'+c.body+'</div>'
-+'<div class="cbtns"><button class="btn '+(c.danger?'btn-danger':'btn-p')+'" onclick="('+c.onOk.toString()+')()">Confirmar</button>'
++'<div class="cbtns"><button class="btn '+(c.danger?'btn-danger':'btn-p')+'" onclick="ui.confirm.onOk()">Confirmar</button>'
 +'<button class="btn" onclick="ui.confirm=null;renderM()">Cancelar</button></div>'
 +'</div></div>';
 }
