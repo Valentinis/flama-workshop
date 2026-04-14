@@ -1991,20 +1991,25 @@ function doReincorp(){var f=ui.reincF;if(!f.cid)return;var sn=snapData();var s=s
 function askDel(){
   var s=sts.find(function(x){return x.id==ui.modal;});
   if(!s)return;
-  showConf('Eliminar alumno','¿Dar de baja a '+s.name+'? Pasará a Eliminados.',function(){
-    var sn=snapData();s.status='deleted';s.studentType='deleted';
-    save();ui.confirm=null;closeSM();showU(s.name+' eliminado',sn);
+  var sid=s.id, sname=s.name;
+  showConf('Eliminar alumno','¿Dar de baja a '+sname+'? Pasará a Eliminados.',function(){
+    var sn=snapData();
+    var st=sts.find(function(x){return x.id==sid;});
+    if(!st)return;
+    st.status='deleted';st.studentType='deleted';
+    save();ui.confirm=null;closeSM();showU(sname+' eliminado',sn);
   },true);
 }
 function askDelPermanente(){
   var s=sts.find(function(x){return x.id==ui.modal;});
   if(!s)return;
-  showConf('Eliminar permanentemente','¿Borrar a '+s.name+' de la app para siempre? No se puede deshacer.',function(){
+  var sid=s.id, sname=s.name;
+  showConf('Eliminar permanentemente','¿Borrar a '+sname+' de la app para siempre? No se puede deshacer.',function(){
     var sn=snapData();
-    sts=sts.filter(function(x){return x.id!==s.id;});
-    ovs=ovs.filter(function(o){return o.sid!==s.id;});
-    pagos=pagos.filter(function(p){return p.sid!==s.id;});
-    save();ui.confirm=null;closeSM();showU(s.name+' eliminado permanentemente',sn);
+    sts=sts.filter(function(x){return x.id!==sid;});
+    ovs=ovs.filter(function(o){return o.sid!==sid;});
+    pagos=pagos.filter(function(p){return p.sid!==sid;});
+    save();ui.confirm=null;closeSM();showU(sname+' eliminado permanentemente',sn);
   },true);
 }
 function cleanHandle(v){return v.toLowerCase().replace(/[^a-z0-9]/g,'');}
@@ -2025,7 +2030,20 @@ function doEditName(){
   addH(s.id,'alta','Nombre actualizado: '+newName+' (@'+newHandle+')');
   save();closeSM();showU('Nombre actualizado — '+newName,sn);
 }
-function doChangeGroup(){if(!ui.moveTarget)return;var s=sts.find(function(x){return x.id==ui.modal;});showConf('Cambiar de grupo','¿Mover a '+s.name+' de '+clsName(s.classId)+' a '+clsName(ui.moveTarget)+'?',function(){var sn=snapData();addH(s.id,'cambio_grupo','Cambio: '+clsName(s.classId)+' → '+clsName(ui.moveTarget));s.classId=ui.moveTarget;save();ui.confirm=null;closeSM();showU('Grupo cambiado — '+s.name,sn);},false);}
+function doChangeGroup(){
+  if(!ui.moveTarget)return;
+  var s=sts.find(function(x){return x.id==ui.modal;});
+  if(!s)return;
+  var sid=s.id, oldCid=s.classId, newCid=ui.moveTarget;
+  showConf('Cambiar de grupo','¿Mover a '+s.name+' de '+clsName(oldCid)+' a '+clsName(newCid)+'?',function(){
+    var sn=snapData();
+    var st=sts.find(function(x){return x.id==sid;});
+    if(!st)return;
+    addH(sid,'cambio_grupo','Cambio: '+clsName(oldCid)+' → '+clsName(newCid));
+    st.classId=newCid;
+    save();ui.confirm=null;closeSM();showU('Grupo cambiado — '+st.name,sn);
+  },false);
+}
 function doChangeTipo(){
   var sn=snapData();
   var sid=ui.modal;
