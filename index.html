@@ -319,6 +319,12 @@ var mon=new Date(monStr+'T12:00:00');
 mon.setDate(mon.getDate()+(DAY_DOW[c.day]||1)-1);
 return mon.toISOString().slice(0,10);
 }
+function classDateTime(cid,monStr){
+// Returns 'YYYY-MM-DD HH:MM' for time-aware comparisons
+var c=CLS.find(function(x){return x.id===cid;});if(!c)return null;
+var d=classDayDate(cid,monStr);if(!d)return null;
+return d+' '+c.start;
+}
 function sortN(a){return[].concat(a).sort(function(x,y){return x.name.localeCompare(y.name,'es');});}
 function pauseOD(s){if(!s.pausaFin)return null;var d=Math.floor((new Date(today()+'T12:00:00')-new Date(s.pausaFin+'T12:00:00'))/864e5);return d>0?d:null;}
 function clsName(id){var c=CLS.find(function(x){return x.id===id;});return c?c.day+' '+c.start:'';}
@@ -369,7 +375,10 @@ if(s.studentType==='gift'||s.studentType==='flamateur'||s.studentType==='recharg
 if(s.status==='pausa')return false;
 if(s.joinDate){
 var cd=s.classId?classDayDate(s.classId,monStr):null;
-if(cd&&s.joinDate>cd)return false;
+var cdt=s.classId?classDateTime(s.classId,monStr):null;
+var joinCmp=s.joinDateTime||s.joinDate;
+if(cdt&&joinCmp>cdt)return false;
+if(!cdt&&cd&&s.joinDate>cd)return false;
 if(!cd){
 var sun=new Date(new Date(monStr+'T12:00:00').getTime()+6*864e5).toISOString().slice(0,10);
 if(s.joinDate>sun)return false;
@@ -660,7 +669,9 @@ var isRechargeV=ovTo&&ovTo.type==='recharge';
 var isRec=ovTo&&ovTo.type==='recuperacion';
 var isPausa=s.status==='pausa';
 var cd=classDayDate(cid,monStr);
-var isPend=s.joinDate&&cd&&s.joinDate>cd;
+var cdt2=classDateTime(cid,monStr);
+var joinCmp2=s.joinDateTime||s.joinDate;
+var isPend=s.joinDate&&(cdt2?joinCmp2>cdt2:cd&&s.joinDate>cd);
 var isAboutToPause=s.pausaScheduled&&s.pausaInicio&&cd&&s.pausaInicio<=cd;
 var isFlam=s.studentType==='flamateur';
 var isRecharge=s.studentType==='recharge';
@@ -1550,7 +1561,8 @@ else {
 // Main actions
 if(s.status==='deleted'||s.studentType==='deleted'){
 content='<div class="arow" onclick="ui.mview=&apos;history&apos;;renderM()"><div class="aico" style="background:var(--bg-subtle);">📋</div><div><div class="atxt">Ver historial</div></div></div>'
-+'<div class="arow" onclick="openReincorp('+s.id+')"><div class="aico" style="background:#e8f0fe;">↩</div><div><div class="atxt">Reincorporar</div><div class="asub">Elige grupo y fecha</div></div></div>';
++'<div class="arow" onclick="openReincorp('+s.id+')"><div class="aico" style="background:#e8f0fe;">↩</div><div><div class="atxt">Reincorporar</div><div class="asub">Elige grupo y fecha</div></div></div>'
++'<div class="arow adanger" onclick="askDelPermanente()"><div class="aico" style="background:#ffeaea;">💀</div><div><div class="atxt">Eliminar permanentemente</div><div class="asub">Borra el alumno de la app</div></div></div>';
 } else if(s.studentType==='flamateur'){
 var flamCount=flamCountMonth(s.id);
 content='<div class="abar ag" style="margin-bottom:10px;">Flamateur · <b>'+flamCount+'</b> clase'+(flamCount!==1?'s':'')+' este mes · 150€/mes</div>';
@@ -1935,7 +1947,7 @@ joinDate=null;
 var isFlamateur=f.stype==='flamateur';
 var isRechargeNew=f.stype==='recharge';
 var histText=f.stype==='gift'?'Alta gift card 4 clases':isFlamateur?'Alta flamateur — 150€/mes':isRechargeNew?'Alta recharge card':'Alta'+(joinDate&&joinDate!==weekMon(0)?' a partir del '+fmtDL(joinDate):'')+' — '+clsName(parseInt(f.cid));
-sts.push({id:nextId++,name:name,handle:handle,classId:f.stype==='regular'?parseInt(f.cid):null,tipo:f.tipo,status:f.stype==='gift'?'gift':'active',cuota:isFlamateur?150:f.stype==='regular'?f.cuota:0,rec:0,history:[{date:today(),type:isFlamateur?'alta':f.stype==='gift'?'gift':'alta',text:histText}],studentType:f.stype,giftClassesLeft:f.stype==='gift'?4:0,giftActivated:false,joinDate:joinDate,leaveDate:null,pausaInicio:null,pausaFin:null,pausaMotivo:null,pausaScheduled:false,flamMonthCount:0,rechargeTotal:0,rechargeUnpaid:0});
+sts.push({id:nextId++,name:name,handle:handle,classId:f.stype==='regular'?parseInt(f.cid):null,tipo:f.tipo,status:f.stype==='gift'?'gift':'active',cuota:isFlamateur?150:f.stype==='regular'?f.cuota:0,rec:0,history:[{date:today(),type:isFlamateur?'alta':f.stype==='gift'?'gift':'alta',text:histText}],studentType:f.stype,giftClassesLeft:f.stype==='gift'?4:0,giftActivated:false,joinDate:joinDate,joinDateTime:joinDateTime||null,leaveDate:null,pausaInicio:null,pausaFin:null,pausaMotivo:null,pausaScheduled:false,flamMonthCount:0,rechargeTotal:0,rechargeUnpaid:0});
 ui.showAdd=false;ui.addForm={name:'',handle:'',tipo:'torno',cuota:100,err:'',stype:'regular',cid:null,joinNow:true,joinDate:today(),sug:''};save();render();
 }
 
