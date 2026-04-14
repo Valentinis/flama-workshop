@@ -1014,7 +1014,7 @@ var h='<div class="add-form">'
   +'<span class="flbl">Nombre</span>'
   +'<input type="text" id="add-name" placeholder="Nombre completo" value="'+f.name+'" oninput="ui.addForm.name=this.value;triggerSug(this.value)" onblur="triggerSug(this.value)">'
   +'<span class="flbl" style="margin-top:10px;">Identificador (@)</span>'
-  +'<div class="ipfx"><span>@</span><input id="add-handle" type="text" placeholder="pablope" value="'+f.handle+'" oninput="ui.addForm.handle=this.value.toLowerCase().replace(/[^a-z0-9]/g,\'\')"></div>'
+  +'<div class="ipfx"><span>@</span><input id="add-handle" type="text" placeholder="pablope" value="'+f.handle+'" oninput="ui.addForm.handle=cleanHandle(this.value)"></div>'
   +(f.sug&&f.sug!==f.handle?'<div class="sug" onclick="applySug(&apos;'+f.sug+'&apos;)">Sugerido: @'+f.sug+'</div>':'')
   +'<div id="af-err" class="err" style="'+(f.err?'':'display:none')+'">'+f.err+'</div>';
 if(f.stype==='regular'||f.stype==='flamateur'||f.stype==='recharge'){
