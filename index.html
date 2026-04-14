@@ -2032,7 +2032,7 @@ function openEditName(){
   ui.mview='editname';
   renderM();
 }
-function cleanHandle(v){return v.toLowerCase().replace(/[^a-z0-9]/g,'');}
+function cleanHandle(v){return v.toLowerCase().replace(/[^a-z0-9._]/g,'');}
 function doEditName(){
   var sn=snapData();
   var s=sts.find(function(x){return x.id==ui.modal;});
