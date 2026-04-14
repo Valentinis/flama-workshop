@@ -1597,7 +1597,7 @@ content+='<div class="arow" onclick="doCancelSchedPausa()"><div class="aico" sty
 } else {
 content+='<div class="arow" onclick="ui.mview=&apos;pausa&apos;;renderM()"><div class="aico" style="background:#fff3e0;">⏸</div><div><div class="atxt">Poner en pausa</div><div class="asub">Indica fechas y motivo</div></div></div>';
 }
-content+='<div class="arow" onclick="ui.editNameF={name:s.name,handle:s.handle};ui.mview=&apos;editname&apos;;renderM()"><div class="aico" style="background:#f0f0f0;">✏️</div><div><div class="atxt">Editar nombre</div></div></div>'
+content+='<div class="arow" onclick="openEditName()"><div class="aico" style="background:#f0f0f0;">✏️</div><div><div class="atxt">Editar nombre</div></div></div>'
 +'<div class="arow" onclick="ui.mview=&apos;move&apos;;renderM()"><div class="aico" style="background:#e8f0fe;">→</div><div><div class="atxt">Cambiar de grupo</div><div class="asub">Cambio permanente</div></div></div>'
 +'<div class="arow" onclick="ui.mview=&apos;tipo&apos;;renderM()"><div class="aico" style="background:#f3e8fd;">⇄</div><div><div class="atxt">Cambiar modalidad</div></div></div>';
 } else if(s.status==='pausa'){
@@ -2025,6 +2025,13 @@ function askDelPermanente(){
     save();ui.confirm=null;closeSM();showU(sname+' eliminado permanentemente',sn);
   },true);
 }
+function openEditName(){
+  var s=sts.find(function(x){return x.id==ui.modal;});
+  if(!s)return;
+  ui.editNameF={name:s.name,handle:s.handle};
+  ui.mview='editname';
+  renderM();
+}
 function cleanHandle(v){return v.toLowerCase().replace(/[^a-z0-9]/g,'');}
 function doEditName(){
   var sn=snapData();
@@ -2148,7 +2155,18 @@ if(ca.type==='cambio'){
 }
 save();closeCM();showU('@'+s.handle+' añadido',sn);
 }
-function askRec(sid){var s=sts.find(function(x){return x.id==sid;});showConf('Marcar como recuperada','¿Marcar una recuperación de '+s.name+' como completada?',function(){var sn=snapData();if(s.rec>0){s.rec--;addH(sid,'recuperacion','Clase recuperada');}save();ui.confirm=null;render();showU('Recuperación marcada — '+s.name,sn);},false);}
+function askRec(sid){
+  sid=+sid;
+  var s=sts.find(function(x){return x.id==sid;});
+  if(!s)return;
+  var sname=s.name;
+  showConf('Marcar como recuperada','¿Marcar una recuperación de '+sname+' como completada?',function(){
+    var sn=snapData();
+    var st=sts.find(function(x){return x.id==sid;});
+    if(st&&st.rec>0){st.rec--;addH(sid,'recuperacion','Clase recuperada');}
+    save();ui.confirm=null;render();showU('Recuperación marcada — '+sname,sn);
+  },false);
+}
 function updatePagosList(){
 ui.pagosQuery=document.getElementById('pagos-search').value;
 var el=document.getElementById('content');
