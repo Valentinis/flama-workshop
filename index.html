@@ -1503,7 +1503,7 @@ content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=
 +'<span class="flbl">Nombre</span>'
 +'<input id="en-name" type="text" value="'+enf.name+'" style="margin-bottom:8px;">'
 +'<span class="flbl">Identificador (@)</span>'
-+'<div class="ipfx"><span>@</span><input id="en-handle" type="text" value="'+enf.handle+'"></div>'
++'<div class="ipfx"><span>@</span><input id="en-handle" type="text" value="'+enf.handle+'" oninput="this.value=cleanHandle(this.value)"></div>'
 +'<div class="btn-row"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">Cancelar</button><button class="btn btn-p" onclick="doEditName()">Guardar</button></div>';
 }
 else if(ui.mview==='move'){
@@ -2041,7 +2041,8 @@ function doEditName(){
   var handleEl=document.getElementById('en-handle');
   var newName=(nameEl?nameEl.value:ui.editNameF.name).trim();
   var newHandle=(handleEl?handleEl.value:ui.editNameF.handle).trim();
-  if(!newName||!newHandle)return;
+  if(!newName){alert('Introduce un nombre');return;}
+  if(!newHandle){alert('El identificador no puede estar vacío');return;}
   newHandle=cleanHandle(newHandle);
   if(newHandle!==s.handle&&sts.some(function(x){return x.handle===newHandle&&x.id!==s.id;})){
     alert('@'+newHandle+' ya está en uso');return;
