@@ -1501,9 +1501,9 @@ else if(ui.mview==='editname'){
 var enf=ui.editNameF;
 content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">← Volver</button></div>'
 +'<span class="flbl">Nombre</span>'
-+'<input type="text" value="'+enf.name+'" oninput="ui.editNameF.name=this.value" style="margin-bottom:8px;">'
++'<input id="en-name" type="text" value="'+enf.name+'" style="margin-bottom:8px;">'
 +'<span class="flbl">Identificador (@)</span>'
-+'<div class="ipfx"><span>@</span><input type="text" value="'+enf.handle+'" oninput="ui.editNameF.handle=cleanHandle(this.value)"></div>'
++'<div class="ipfx"><span>@</span><input id="en-handle" type="text" value="'+enf.handle+'"></div>'
 +'<div class="btn-row"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">Cancelar</button><button class="btn btn-p" onclick="doEditName()">Guardar</button></div>';
 }
 else if(ui.mview==='move'){
@@ -2030,10 +2030,10 @@ function doEditName(){
   var sn=snapData();
   var s=sts.find(function(x){return x.id==ui.modal;});
   if(!s)return;
-  // Read from DOM inputs directly (more reliable than oninput state)
-  var inputs=document.getElementById('mroot').querySelectorAll('input[type=text]');
-  var newName=(inputs[0]?inputs[0].value:ui.editNameF.name).trim();
-  var newHandle=(inputs[1]?inputs[1].value:ui.editNameF.handle).trim();
+  var nameEl=document.getElementById('en-name');
+  var handleEl=document.getElementById('en-handle');
+  var newName=(nameEl?nameEl.value:ui.editNameF.name).trim();
+  var newHandle=(handleEl?handleEl.value:ui.editNameF.handle).trim();
   if(!newName||!newHandle)return;
   newHandle=cleanHandle(newHandle);
   if(newHandle!==s.handle&&sts.some(function(x){return x.handle===newHandle&&x.id!==s.id;})){
@@ -2160,8 +2160,10 @@ if(inp){inp.focus();var v=inp.value;inp.value='';inp.value=v;}
 function savePago(){
   var pm=ui.pagoMod;
   var s=sts.find(function(x){return x.id===pm.sid;});
-  var qty=pm.cantidad||(s&&s.studentType==='recharge'?0:s&&s.cuota)||0;
-  if(!qty)return;
+  var isRC=s&&s.studentType==='recharge';
+  var qty=pm.cantidad||(isRC?0:s&&s.cuota)||0;
+  if(!qty&&!isRC)return;
+  if(!qty&&isRC){alert('Introduce un importe');return;}
   var sn=snapData();
   var ex=getPago(pm.sid,ui.curM,ui.curY);
   if(ex){ex.cantidad=qty;ex.nota=pm.nota;}
