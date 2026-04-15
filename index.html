@@ -1913,10 +1913,14 @@ if(sd)sd.innerHTML=selS?‘Seleccionado: <b>’+selS.name+’</b> (@’+selS.han
 
 function doAddAlumno(){
 var f=ui.addForm;
-// Always read select value fresh from DOM before validating
+// Always read values fresh from DOM
+var nameEl=document.getElementById(‘add-name’);
+var handleEl=document.getElementById(‘add-handle’);
 var sel=document.getElementById(‘af-grupo’);
+if(nameEl&&nameEl.value)ui.addForm.name=nameEl.value;
+if(handleEl&&handleEl.value)ui.addForm.handle=cleanHandle(handleEl.value);
 if(sel&&sel.value)ui.addForm.cid=sel.value;
-var name=f.name.trim(),handle=f.handle.trim();
+var name=ui.addForm.name.trim(),handle=ui.addForm.handle.trim();
 function showFormErr(msg){
 ui.addForm.err=msg;
 var er=document.getElementById(‘af-err’);
