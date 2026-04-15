@@ -1917,9 +1917,9 @@ var f=ui.addForm;
 var nameEl=document.getElementById(‘add-name’);
 var handleEl=document.getElementById(‘add-handle’);
 var sel=document.getElementById(‘af-grupo’);
-if(nameEl)ui.addForm.name=nameEl.value||ui.addForm.name;
-if(handleEl)ui.addForm.handle=cleanHandle(handleEl.value||ui.addForm.handle);
-if(sel&&sel.options&&sel.selectedIndex>=0)ui.addForm.cid=sel.options[sel.selectedIndex].value;
+if(nameEl&&nameEl.value)ui.addForm.name=nameEl.value;
+if(handleEl&&handleEl.value)ui.addForm.handle=cleanHandle(handleEl.value);
+if(sel&&sel.value)ui.addForm.cid=sel.value;
 var name=ui.addForm.name.trim(),handle=ui.addForm.handle.trim();
 function showFormErr(msg){
 ui.addForm.err=msg;
