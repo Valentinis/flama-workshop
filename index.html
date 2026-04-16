@@ -1923,10 +1923,14 @@ if(sd)sd.innerHTML=selS?'Seleccionado: <b>'+selS.name+'</b> (@'+selS.handle+')':
 
 function doAddAlumno(){
 var f=ui.addForm;
-// Always read select value fresh from DOM before validating
+// Always read values fresh from DOM
+var nameEl=document.getElementById('add-name');
+var handleEl=document.getElementById('add-handle');
 var sel=document.getElementById('af-grupo');
+if(nameEl&&nameEl.value)ui.addForm.name=nameEl.value;
+if(handleEl&&handleEl.value)ui.addForm.handle=cleanHandle(handleEl.value);
 if(sel&&sel.value)ui.addForm.cid=sel.value;
-var name=f.name.trim(),handle=f.handle.trim();
+var name=ui.addForm.name.trim(),handle=ui.addForm.handle.trim();
 function showFormErr(msg){
   ui.addForm.err=msg;
   var er=document.getElementById('af-err');
@@ -1938,12 +1942,13 @@ if(!handle){showFormErr('Identificador obligatorio.');return;}
 if(hExists(handle,-1)){showFormErr('@'+handle+' ya está en uso.');return;}
 if(f.stype==='regular'&&!parseInt(f.cid)){showFormErr('Selecciona un grupo.');return;}
 var joinDate=null;
+var joinDateTime=null;
 if(f.stype==='regular'){
-if(!f.joinNow){
-joinDate=f.joinDate;
-} else {
-joinDate=null;
-}
+  if(!f.joinNow){
+    joinDate=f.joinDate;
+    var joinCls=CLS.find(function(x){return x.id===parseInt(f.cid);});
+    joinDateTime=joinDate&&joinCls?joinDate+' '+joinCls.start:joinDate;
+  }
 }
 var isFlamateur=f.stype==='flamateur';
 var isRechargeNew=f.stype==='recharge';
