@@ -2464,6 +2464,29 @@ if(ui.showAdd&&ui.addForm.cid){
 
 // Render immediately with localStorage data (instant)
 render();
+// Show migration button if needed
+(function(){
+  var hasOldWeeks=ovs.some(function(o){
+    if(!o.week)return false;
+    var parts=o.week.split('-');
+    var d=new Date(+parts[0],+parts[1]-1,+parts[2]);
+    return d.getDay()===0||d.getDay()===6;
+  });
+  if(hasOldWeeks){
+    var div=document.createElement('div');
+    div.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#d63b3b;color:#fff;padding:12px 16px;text-align:center;font-size:14px;font-weight:600;cursor:pointer;';
+    div.innerHTML='⚠️ Datos desactualizados — <u>Pulsa para corregir</u>';
+    div.onclick=function(){
+      ovs=migrateOvs(ovs);
+      try{localStorage.setItem('tc_o',JSON.stringify(ovs));}catch(e){}
+      save();
+      div.innerHTML='✓ Corrección aplicada — recarga la página';
+      div.style.background='#1D9E75';
+      setTimeout(function(){location.reload();},1500);
+    };
+    document.body.appendChild(div);
+  }
+})();
 // Then sync with Firebase in background
 loadFromFirebase(function(){try{render();}catch(e){console.warn('render error:',e);}});
 // Set sticky bar top offset based on actual header height
