@@ -462,6 +462,22 @@ var fbSaveTimer = null;
 
 function fbSetField(val){return {stringValue: typeof val==='string'?val:JSON.stringify(val)};}
 
+function migrateOvs(ovsArr){
+  // One-time migration: all weeks were stored 1 day behind due to UTC bug
+  // Only migrate if not already done (check flag in localStorage)
+  if(localStorage.getItem('tc_migrated_v2')==='1')return ovsArr;
+  var migrated=ovsArr.map(function(o){
+    if(!o.week)return o;
+    var parts=o.week.split('-');
+    var d=new Date(+parts[0],+parts[1]-1,+parts[2]);
+    d.setDate(d.getDate()+1);
+    o=Object.assign({},o);
+    o.week=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    return o;
+  });
+  localStorage.setItem('tc_migrated_v2','1');
+  return migrated;
+}
 function doResetAll(){
   if(!confirm('Borrar TODOS los datos de ejemplo y empezar de cero?'))return;
   // Clear localStorage
@@ -514,7 +530,7 @@ function loadFromFirebase(callback){
             var fbInt=JSON.parse(f.interesados?f.interesados.stringValue:'[]');
             var fbNextId=f.nextId?+(f.nextId.integerValue||f.nextId.stringValue||100):100;
             if(fbSts.length>=sts.length){
-              sts=fbSts;pagos=fbPagos;ovs=fbOvs;interesados=fbInt;nextId=fbNextId;
+              sts=fbSts;pagos=fbPagos;ovs=migrateOvs(fbOvs);interesados=fbInt;nextId=fbNextId;
               try{
                 localStorage.setItem('tc_s',JSON.stringify(sts));
                 localStorage.setItem('tc_p',JSON.stringify(pagos));
@@ -566,6 +582,7 @@ var ovs=[],pagos=[],interesados=[];
     if(seenIds[s.id])return false;
     seenIds[s.id]=true;return true;
   });
+  ovs=migrateOvs(ovs);
   // CRITICAL: update nextId to avoid duplicate IDs
   if(sts.length){
     var maxId=sts.reduce(function(m,s){return Math.max(m,+s.id||0);},0);
