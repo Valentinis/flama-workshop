@@ -311,8 +311,8 @@ function today(){return new Date().toISOString().slice(0,10);}
 function fmtDS(s){return s?new Date(s+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'—';}
 function fmtDL(s){return s?new Date(s+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}):'—';}
 function fmtDW(d){return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'});}
-function getMonday(d){var dt=new Date(d),day=dt.getDay();dt.setDate(dt.getDate()-(day===0?6:day-1));dt.setHours(0,0,0,0);return dt;}
-function weekMon(off){var now=new Date();now.setDate(now.getDate()+off*7);return getMonday(now).toISOString().slice(0,10);}
+function getMonday(d){var dt=new Date(d),day=dt.getDay();dt.setDate(dt.getDate()-(day===0?6:day-1));dt.setHours(12,0,0,0);return dt;}
+function weekMon(off){var now=new Date();now.setDate(now.getDate()+off*7);var m=getMonday(now);return m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0')+'-'+String(m.getDate()).padStart(2,'0');}
 function weekLbl(off){var m=getMonday(new Date(new Date().getTime()+off*7*864e5));var e=new Date(m);e.setDate(e.getDate()+5);return fmtDW(m)+' — '+fmtDW(e);}
 function classDayDate(cid,monStr){
 var c=CLS.find(function(x){return x.id===cid;});if(!c)return null;
