@@ -411,7 +411,7 @@ function getOvs(sid,monStr){return ovs.filter(function(o){return o.sid===sid&&o.
 function getOv(sid,monStr,cid){
 var all=getOvs(sid,monStr);
 if(cid!==undefined){
-return all.find(function(o){return o.fromCid===cid||((o.type==='recuperacion'||o.type==='gift'||o.type==='flamateur'||o.type==='recharge')&&o.toCid===cid);});
+return all.find(function(o){return o.fromCid===cid||((o.type==='recuperacion'||o.type==='gift'||o.type==='flamateur'||o.type==='recharge'||o.type==='extra')&&o.toCid===cid);});
 }
 return all[0]||null;
 }
@@ -605,6 +605,12 @@ var uTimer=null,uSnap=null;
 // save() defined above with Firebase sync
 function snapData(){return{sts:JSON.parse(JSON.stringify(sts)),pagos:JSON.parse(JSON.stringify(pagos)),ovs:JSON.parse(JSON.stringify(ovs))};}
 function showU(lbl,sn){uSnap=sn;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='<div class="ubar"><span>'+lbl+'</span><button class="ubtn" onclick="doUndo()">Deshacer</button><button class="ubtn" onclick="document.getElementById(&apos;uroot&apos;).innerHTML=&apos;&apos;" style="margin-left:4px;">✕</button></div>';uTimer=setTimeout(function(){document.getElementById('uroot').innerHTML='';uSnap=null;},5000);}
+function showPagoOk(name,qty){
+  var el=document.getElementById('uroot');
+  el.innerHTML='<div class="ubar" style="background:#1D9E75;color:#fff;font-weight:600;font-size:15px;gap:10px;">✓ '+qty+'€ · '+name+'</div>';
+  clearTimeout(uTimer);
+  uTimer=setTimeout(function(){el.innerHTML='';},3000);
+}
 function doUndo(){if(!uSnap)return;sts=uSnap.sts;pagos=uSnap.pagos;ovs=uSnap.ovs;uSnap=null;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='';save();render();}
 function addH(sid,type,text){var s=sts.find(function(x){return x.id==sid;});if(s){if(!s.history)s.history=[];s.history.unshift({date:today(),type:type,text:text});}}
 function hCol(t){return t==='baja'?'#d63b3b':t==='recuperacion'?'#1D9E75':t==='pausa'?'#c07800':t==='pago'?'#185FA5':t==='gift'?'#7a1a9a':'#1D9E75';}
@@ -667,6 +673,7 @@ var isVisit=ovTo&&ovTo.type==='cambio';
 var isGiftV=ovTo&&ovTo.type==='gift';
 var isFlamV=ovTo&&ovTo.type==='flamateur';
 var isRechargeV=ovTo&&ovTo.type==='recharge';
+var isExtraV=ovTo&&ovTo.type==='extra';
 var isRec=ovTo&&ovTo.type==='recuperacion';
 var isPausa=s.status==='pausa';
 var cd=classDayDate(cid,monStr);
@@ -676,7 +683,7 @@ var isPend=s.joinDate&&(cdt2?joinCmp2>cdt2:cd&&s.joinDate>cd);
 var isAboutToPause=s.pausaScheduled&&s.pausaInicio&&cd&&s.pausaInicio<=cd;
 var isFlam=s.studentType==='flamateur';
 var isRecharge=s.studentType==='recharge';
-var chipCls=isPausa?'chip ch-pausa':isPend?'chip ch-pending':isAboutToPause?'chip ch-pause-sched':isAbsMoved?'chip ch-cambio':isAbs?'chip ch-baja':isGiftV?'chip ch-gift':isFlamV?'chip ch-flam':isRechargeV?'chip ch-recharge':isRec?'chip ch-rec':isVisit?'chip ch-visit':isFlam?'chip ch-flam':isRecharge?'chip ch-recharge':'chip ch-active';
+var chipCls=isPausa?'chip ch-pausa':isPend?'chip ch-pending':isAboutToPause?'chip ch-pause-sched':isAbsMoved?'chip ch-cambio':isAbs?'chip ch-baja':isGiftV?'chip ch-gift':isFlamV?'chip ch-flam':isRechargeV?'chip ch-recharge':isExtraV?'chip ch-extra':isRec?'chip ch-rec':isVisit?'chip ch-visit':isFlam?'chip ch-flam':isRecharge?'chip ch-recharge':'chip ch-active';
 // (chips never ghosted - only day labels)
 var badge=s.rec>0&&!isPausa&&!isPend?'<span class="rec-badge">'+s.rec+'</span>':'';
 var arr2=isVisit||isGiftV||isRec?'↩':'';
@@ -1045,7 +1052,7 @@ if(f.stype==='regular'){
     +'<button class="tbtn'+(f.joinNow?' sel':'')+'" data-af-join="now" onclick="ui.addForm.joinNow=true;updateAddFormButtons()">Inmediata</button>'
     +'<button class="tbtn'+(!f.joinNow?' sel':'')+'" data-af-join="later" onclick="ui.addForm.joinNow=false;updateAddFormButtons()">A partir de…</button>'
     +'</div>'
-    +'<input id="af-joindate" type="date" value="'+f.joinDate+'" onchange="ui.addForm.joinDate=this.value" style="margin-top:8px;'+(f.joinNow?'display:none;':'')+'">'
+    +'<input id="af-joindate" type="date" value="'+f.joinDate+'" onchange="ui.addForm.joinDate=this.value;ui.addForm.joinNow=false;updateAddFormButtons()" style="margin-top:8px;'+(f.joinNow?'display:none;':'')+'">'
 }
 h+='<div class="btn-row"><button class="btn btn-p" onclick="doAddAlumno()">Añadir alumno</button></div></div>';
 return h;
@@ -1652,7 +1659,7 @@ if(cm.addMode){
   var filtered=ca.query?avail.filter(function(s){return s.name.toLowerCase().includes(ca.query.toLowerCase())||s.handle.toLowerCase().includes(ca.query.toLowerCase());}):avail;
   var selS=ca.selId?sts.find(function(x){return x.id===ca.selId;}):null;
 
-  var types=[['recuperacion','Recuperación'],['cambio','Cambio de clase'],['gift','Gift card'],['flamateur','Flamateur'],['recharge','Recharge']];
+  var types=[['recuperacion','Recuperación'],['extra','Clase extra'],['cambio','Cambio de clase'],['gift','Gift card'],['flamateur','Flamateur'],['recharge','Recharge']];
   var typeBtns=types.map(function(t){
     return '<button class="tbtn'+(ca.type===t[0]?' sel':'')+'" onclick="setCaddType(&apos;'+t[0]+'&apos;)">'+t[1]+'</button>';
   }).join('');
@@ -1732,6 +1739,10 @@ if(isFlamV2){
   var fCnt=flamCountMonth(cm.sid);
   rows+='<div class="abar ag" style="margin-bottom:8px;">Flamateur · '+fCnt+' clase'+(fCnt!==1?'s':'')+' este mes</div>';
   rows+='<div class="arow" onclick="doCancelOv('+cm.sid+',\''+ cm.monStr +'\',false,'+cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">Cancelar esta clase</div><div class="asub">Sin recuperación pendiente</div></div></div>';
+}
+var isExtraV2=ovTo&&ovTo.type==='extra';
+if(isExtraV2){
+  rows+='<div class="arow" onclick="doCancelOv('+cm.sid+',\''+ cm.monStr +'\',false,'+cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">Cancelar clase extra</div></div></div>';
 }
 if(isRechargeV2){
   var rcS=sts.find(function(x){return x.id===cm.sid;});
@@ -1883,6 +1894,7 @@ function getAvail2(type){
 if(type==='recuperacion')return sortN(sts.filter(function(s){return isActive(s)&&s.rec>0&&s.classId!==cid&&!getOvs(s.id,monStr).some(function(o){return(o.type==='recuperacion'||o.type==='gift')&&o.toCid===cid;});}));
 if(type==='cambio')return sortN(sts.filter(function(s){return isActive(s)&&s.classId!==cid&&!getOvs(s.id,monStr).some(function(o){return o.toCid===cid;});}));
 if(type==='gift')return sortN(sts.filter(function(s){return s.studentType==='gift'&&s.giftActivated&&s.giftClassesLeft>0;}));
+if(type==='extra')return sortN(sts.filter(function(s){return isActive(s)&&!getOvs(s.id,monStr).some(function(o){return o.toCid===cid&&o.type==='extra';});}));
 return[];
 }
 var avail=getAvail2(ca.type);
@@ -1946,8 +1958,8 @@ var joinDateTime=null;
 if(f.stype==='regular'){
   if(!f.joinNow){
     joinDate=f.joinDate;
-    var joinCls=CLS.find(function(x){return x.id===parseInt(f.cid);});
-    joinDateTime=joinDate&&joinCls?joinDate+' '+joinCls.start:joinDate;
+    // Store as date+00:00 so student attends ALL classes on joinDate
+    joinDateTime=joinDate?joinDate+' 00:00':null;
   }
 }
 var isFlamateur=f.stype==='flamateur';
@@ -2109,7 +2121,7 @@ function doCancelOvVisit(sid,monStr,visitCid){sid=+sid;visitCid=+visitCid;
   addH(sid,'cambio','Cambio cancelado — vuelve a '+(origCls?origCls.day+' '+origCls.start:'clase original'));
   save();closeCM();showU('Cambio cancelado — @'+s.handle,sn);
 }
-function doCancelOv(sid,monStr,wasAbsent,cid){sid=+sid;cid=(cid!==undefined)?+cid:cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var ov=cid!==undefined?getOv(sid,monStr,cid):getOv(sid,monStr);if(!ov)return;if(wasAbsent&&s.rec>0){s.rec--;addH(sid,'baja','Baja cancelada — vuelve a clase');}if(ov.type==='gift'){s.giftClassesLeft=(s.giftClassesLeft||0)+1;addH(sid,'gift','Gift card devuelta (cancelación)');}if(ov.type==='flamateur'){addH(sid,'alta','Flamateur cancelado (semana '+monStr+')');}if(ov.type==='recharge'){if(s.rechargeTotal>0)s.rechargeTotal--;if(s.rechargeUnpaid>0)s.rechargeUnpaid--;addH(sid,'alta','Recharge cancelado (semana '+monStr+')');}if(ov.type==='recuperacion'){s.rec=(s.rec||0)+1;addH(sid,'recuperacion','Recuperación cancelada — clase devuelta a pendientes');}ovs=ovs.filter(function(o){return o!==ov;});save();closeCM();showU('Cancelado — @'+s.handle,sn);}
+function doCancelOv(sid,monStr,wasAbsent,cid){sid=+sid;cid=(cid!==undefined)?+cid:cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var ov=cid!==undefined?getOv(sid,monStr,cid):getOv(sid,monStr);if(!ov)return;if(wasAbsent&&s.rec>0){s.rec--;addH(sid,'baja','Baja cancelada — vuelve a clase');}if(ov.type==='gift'){s.giftClassesLeft=(s.giftClassesLeft||0)+1;addH(sid,'gift','Gift card devuelta (cancelación)');}if(ov.type==='flamateur'){addH(sid,'alta','Flamateur cancelado (semana '+monStr+')');}if(ov.type==='extra'){addH(sid,'alta','Clase extra cancelada (semana '+monStr+')');}if(ov.type==='recharge'){if(s.rechargeTotal>0)s.rechargeTotal--;if(s.rechargeUnpaid>0)s.rechargeUnpaid--;addH(sid,'alta','Recharge cancelado (semana '+monStr+')');}if(ov.type==='recuperacion'){s.rec=(s.rec||0)+1;addH(sid,'recuperacion','Recuperación cancelada — clase devuelta a pendientes');}ovs=ovs.filter(function(o){return o!==ov;});save();closeCM();showU('Cancelado — @'+s.handle,sn);}
 function doCancelCambioYBaja(sid,monStr,visitCid){sid=+sid;visitCid=+visitCid;
   // Called when clicking on the visiting chip: cancels the change AND adds baja to original class
   var sn=snapData();
@@ -2154,6 +2166,10 @@ if(ca.type==='cambio'){
   if(!s.rechargeUnpaid)s.rechargeUnpaid=0;
   s.rechargeTotal++;s.rechargeUnpaid++;
   addH(sid,'alta','Recharge ('+rechTipo+') en '+c.day+' '+c.start+' (semana '+monStr+')');
+} else if(ca.type==='extra'){
+  ovs=ovs.filter(function(o){return!(o.sid===sid&&o.week===monStr&&o.type==='extra'&&+o.toCid===+cid);});
+  ovs.push({sid:sid,week:monStr,fromCid:null,toCid:cid,type:'extra'});
+  addH(sid,'alta','Clase extra en '+c.day+' '+c.start+' (semana '+monStr+')');
 } else {
   ovs.push({sid:sid,week:monStr,fromCid:null,toCid:cid,type:ca.type});
   if(ca.type==='recuperacion'&&s.rec>0){s.rec--;addH(sid,'recuperacion','Recuperación en '+c.day+' '+c.start+' (semana '+monStr+')');}
@@ -2199,7 +2215,8 @@ function savePago(){
     s.rechargeUnpaid=(s.rechargeUnpaid||0)-classesPaid;
     // rechargeUnpaid can go negative (prepaid)
   }
-  ui.pagoMod=null;save();render();showU('Pago — '+(s?s.name:''),sn);
+  var pname=s?s.name:'';var pqty=qty;
+  ui.pagoMod=null;save();render();showPagoOk(pname,pqty);
 }
 function chM(d){ui.curM+=d;if(ui.curM>11){ui.curM=0;ui.curY++;}if(ui.curM<0){ui.curM=11;ui.curY--;}ui.pagosQuery='';render();}
 var tabScroll={};
