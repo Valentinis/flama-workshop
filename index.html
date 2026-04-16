@@ -530,13 +530,19 @@ function loadFromFirebase(callback){
             var fbInt=JSON.parse(f.interesados?f.interesados.stringValue:'[]');
             var fbNextId=f.nextId?+(f.nextId.integerValue||f.nextId.stringValue||100):100;
             if(fbSts.length>=sts.length){
-              sts=fbSts;pagos=fbPagos;ovs=migrateOvs(fbOvs);interesados=fbInt;nextId=fbNextId;
-              try{
-                localStorage.setItem('tc_s',JSON.stringify(sts));
-                localStorage.setItem('tc_p',JSON.stringify(pagos));
-                localStorage.setItem('tc_o',JSON.stringify(ovs));
-                localStorage.setItem('tc_i',JSON.stringify(interesados));
-              }catch(e){}
+              var migratedOvs=migrateOvs(fbOvs);
+            var needsSave=JSON.stringify(migratedOvs)!==JSON.stringify(fbOvs);
+            sts=fbSts;pagos=fbPagos;ovs=migratedOvs;interesados=fbInt;nextId=fbNextId;
+            // Also update localStorage
+            try{
+              localStorage.setItem('tc_s',JSON.stringify(sts));
+              localStorage.setItem('tc_p',JSON.stringify(pagos));
+              localStorage.setItem('tc_o',JSON.stringify(ovs));
+              localStorage.setItem('tc_i',JSON.stringify(interesados));
+            }catch(e){}
+            // Save migrated data back to Firebase if migration happened
+            if(needsSave){save();}
+              // localStorage already saved above
             }
           }catch(e){console.warn('FB parse:',e);}
         }
