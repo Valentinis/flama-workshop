@@ -1170,8 +1170,9 @@ var dow=DAY_DOW[day]||1;
 var isToday=isCurWeek&&dow===todayDow;
 var todayBadge=isToday?' <span style="font-size:11px;background:#e1f5ee;color:#0a6e50;border-radius:10px;padding:2px 7px;font-weight:500;">Hoy</span>':'';
 // Calculate actual date number for this day in the displayed week
-var mon=new Date(monStr+'T12:00:00');
-var dayDate=new Date(mon);dayDate.setDate(mon.getDate()+(dow-1));
+var monParts=monStr.split('-');
+var mon=new Date(+monParts[0],+monParts[1]-1,+monParts[2]);
+var dayDate=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+(dow-1));
 var dayNum=dayDate.getDate();
 var dayMonthShort=dayDate.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
 // Past/future/today using isToday (already correct) + week offset
@@ -1444,19 +1445,59 @@ return '<div class="moverlay" onclick="ui.confirm=null;renderM()"><div class="cs
 function renderPagoM(){
 var s=sts.find(function(x){return x.id===ui.pagoMod.sid;});if(!s)return '';
 var ex=getPago(s.id,ui.curM,ui.curY);var c=CLS.find(function(x){return x.id===s.classId;});
+var isRC=s.studentType==='recharge';
 var rem=s.classId?remClasses(s.classId):0;var sug=rem*PPC;
+var subLine=isRC?'Recharge · '+(s.rechargeUnpaid>0?s.rechargeUnpaid+' clases por pagar':'al día'):(c?c.day+' '+c.start:'—')+' · '+s.cuota+'€/mes habitual';
+var rcInfo=isRC?('<div class="abar ag" style="margin-bottom:10px;">Clases realizadas: <b>'+(s.rechargeTotal||0)+'</b> · Por pagar: <b>'+(s.rechargeUnpaid||0)+'</b>'+(s.rechargeUnpaid<0?' · <span style="color:#1D9E75;">'+Math.abs(s.rechargeUnpaid)+' pagadas por adelantado</span>':'')+'</div>'):'';
+var defaultAmt=isRC?(s.rechargeUnpaid>0?s.rechargeUnpaid*25:100):(ex?ex.cantidad:s.cuota);
+
+// All payments for this student
+var allPagos=pagos.filter(function(p){return p.sid===s.id;}).sort(function(a,b){return b.yr-a.yr||b.mes-a.mes;});
+var histHtml='';
+if(allPagos.length){
+  histHtml='<span class="flbl" style="margin-top:12px;">Historial de pagos</span>';
+  histHtml+=allPagos.map(function(p){
+    var isCur=p.mes===ui.curM&&p.yr===ui.curY;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">'      +'<div><span style="font-size:13px;font-weight:600;">'+(isCur?'<b>':'')+''+MONTHS[p.mes]+' '+p.yr+(isCur?'</b>':'')+'</span>'      +(p.nota?'<div style="font-size:11px;color:var(--text2);">'+p.nota+'</div>':'')+'</div>'      +'<div style="display:flex;align-items:center;gap:8px;">'      +'<span style="font-weight:700;font-size:14px;">'+p.cantidad+'€</span>'      +'<button onclick="editPago('+s.id+','+p.mes+','+p.yr+')" style="background:#e8f0fe;color:#1a5ca8;border:none;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;">✏️</button>'      +'<button onclick="deletePago('+s.id+','+p.mes+','+p.yr+')" style="background:#ffeaea;color:#b03030;border:none;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;">🗑</button>'      +'</div></div>';
+  }).join('');
+}
+
 return '<div class="moverlay" onclick="closePM()"><div class="msheet" onclick="event.stopPropagation()">'
 +'<div class="mhandle"></div><div class="mname">'+tIco(s.tipo)+' '+s.name+'</div>'
 +'<div class="mhandle2">@'+s.handle+'</div>'
-+'<div class="msub">'+(c?c.day+' '+c.start:'—')+' · '+s.cuota+'€/mes habitual</div>'
-+(s.rec>0?'<div class="abar aw">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')
-+'<span class="flbl" style="margin-top:0;">Cantidad (€)</span>'
-+'<input type="number" placeholder="'+(ex?ex.cantidad:s.cuota)+'" value="'+(ui.pagoMod.cantidad||ex&&ex.cantidad||'')+'" oninput="ui.pagoMod.cantidad=parseInt(this.value)||0" style="margin-bottom:6px;">'
-+(sug&&sug!==s.cuota?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')
++'<div class="msub">'+subLine+'</div>'
++rcInfo
++(s.rec>0&&!isRC?'<div class="abar aw">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')
++'<span class="flbl" style="margin-top:0;">'+MONTHS[ui.curM]+' '+ui.curY+'</span>'
++'<input id="pm-qty" type="number" placeholder="'+defaultAmt+'" value="'+(ui.pagoMod.cantidad||ex&&ex.cantidad||'')+'" oninput="ui.pagoMod.cantidad=parseInt(this.value)||0" style="margin-bottom:6px;">'
++(sug&&sug!==s.cuota&&!isRC?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')
 +'<span class="flbl">Nota</span>'
-+'<input type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:0;">'
++'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:0;">'
++histHtml
 +'<div class="btn-row"><button class="btn" onclick="closePM()">Cancelar</button><button class="btn btn-p" onclick="savePago()">Guardar</button></div>'
 +'</div></div>';
+}
+
+function editPago(sid,mes,yr){
+  var p=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr;});
+  if(!p)return;
+  ui.pagoMod={sid:sid,cantidad:p.cantidad,nota:p.nota||''};
+  ui.curM=mes;ui.curY=yr;
+  renderM();
+}
+function deletePago(sid,mes,yr){
+  var s=sts.find(function(x){return x.id==sid;});
+  var sname=s?s.name:'alumno';
+  if(!confirm('¿Eliminar pago de '+MONTHS[mes]+' '+yr+' de '+sname+'?'))return;
+  var sn=snapData();
+  // If recharge, restore rechargeUnpaid
+  var p=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr;});
+  if(s&&s.studentType==='recharge'&&p){
+    var classesPaid=Math.round(p.cantidad/PPC);
+    s.rechargeUnpaid=(s.rechargeUnpaid||0)+classesPaid;
+  }
+  pagos=pagos.filter(function(x){return!(x.sid===sid&&x.mes===mes&&x.yr===yr);});
+  save();renderM();showU('Pago eliminado — '+sname,sn);
 }
 
 function renderSM(){
@@ -2199,6 +2240,9 @@ if(inp){inp.focus();var v=inp.value;inp.value='';inp.value=v;}
 }
 function savePago(){
   var pm=ui.pagoMod;
+  var qtyEl=document.getElementById('pm-qty');var notaEl=document.getElementById('pm-nota');
+  if(qtyEl&&qtyEl.value)pm.cantidad=parseInt(qtyEl.value)||0;
+  if(notaEl)pm.nota=notaEl.value;
   var s=sts.find(function(x){return x.id===pm.sid;});
   var isRC=s&&s.studentType==='recharge';
   var qty=pm.cantidad||(isRC?0:s&&s.cuota)||0;
