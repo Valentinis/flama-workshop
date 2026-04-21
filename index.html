@@ -2521,11 +2521,14 @@ if(ui.showAdd&&ui.addForm.cid){
   // reset bar removed
 })();
 
-// Render immediately with localStorage data (instant)
-render();
-
-// Then sync with Firebase in background
-loadFromFirebase(function(){try{render();}catch(e){console.warn('render error:',e);}});
+// Check auth first
+checkAuth();
+if(!isLoggedIn()){
+  renderLogin();
+} else {
+  render();
+  loadFromFirebase(function(){try{render();}catch(e){console.warn('render error:',e);}});
+}
 // Set sticky bar top offset based on actual header height
 (function(){var h=document.querySelector('.header');if(h)document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px');})();
 </script>
