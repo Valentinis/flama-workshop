@@ -568,13 +568,16 @@ function logout(){
 }
 
 function renderLogin(){
-  document.body.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111;padding:32px;font-family:sans-serif;">'    +'<div style="font-size:32px;margin-bottom:8px;">🔥</div>'    +'<div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:6px;">Flama Workshop</div>'    +'<div style="font-size:13px;color:#888;margin-bottom:40px;">Gestión del taller</div>'    +'<div id="gsi-btn"></div>'    +'<div id="login-err" style="margin-top:16px;color:#ff6b6b;font-size:13px;display:none;"></div>'    +'</div>';
-  if(window.google){
-    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleLogin});
-    google.accounts.id.renderButton(document.getElementById('gsi-btn'),{theme:'filled_black',size:'large',shape:'pill',text:'sign_in_with'});
-  } else {
-    setTimeout(renderLogin,500);
+  document.body.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111;padding:32px;font-family:sans-serif;">'    +'<div style="font-size:32px;margin-bottom:8px;">🔥</div>'    +'<div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:6px;">Flama Workshop</div>'    +'<div style="font-size:13px;color:#888;margin-bottom:40px;">Gestión del taller</div>'    +'<div id="g_id_onload" data-client_id="'+GOOGLE_CLIENT_ID+'" data-callback="handleGoogleLogin" data-auto_select="false"></div>'    +'<div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="sign_in_with" data-shape="pill"></div>'    +'<div id="login-err" style="margin-top:16px;color:#ff6b6b;font-size:13px;display:none;"></div>'    +'</div>';
+  function tryInit(){
+    if(window.google&&window.google.accounts){
+      google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleLogin,auto_select:false});
+      google.accounts.id.renderButton(document.querySelector('.g_id_signin'),{theme:'filled_black',size:'large',shape:'pill',text:'sign_in_with'});
+    } else {
+      setTimeout(tryInit,300);
+    }
   }
+  tryInit();
 }
 
 function handleGoogleLogin(response){
