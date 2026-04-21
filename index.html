@@ -556,6 +556,17 @@ var currentUser=null;
 function isLoggedIn(){return currentUser!==null;}
 
 function checkAuth(){
+  // Check if returning from Google OAuth redirect
+  var hash=window.location.hash;
+  if(hash&&hash.indexOf('access_token')!==-1){
+    var token=hash.match(/access_token=([^&]+)/);
+    if(token){
+      // Clear hash from URL
+      history.replaceState(null,null,window.location.pathname);
+      verifyGoogleToken(token[1]);
+      return;
+    }
+  }
   var s=localStorage.getItem('flama_user');
   if(s){try{currentUser=JSON.parse(s);}catch(e){}}
 }
@@ -571,25 +582,13 @@ function renderLogin(){
 }
 
 function startGoogleLogin(){
-  var redirectUri=encodeURIComponent(window.location.origin+window.location.pathname);
+  var redirectUri=window.location.origin+window.location.pathname;
+  // Remove trailing slash issues
+  if(redirectUri.slice(-1)==='/')redirectUri=redirectUri.slice(0,-1);
+  redirectUri=redirectUri+'/';
   var scope=encodeURIComponent('email profile');
-  var url='https://accounts.google.com/o/oauth2/v2/auth?'    +'client_id='+GOOGLE_CLIENT_ID    +'&redirect_uri='+redirectUri    +'&response_type=token'    +'&scope='+scope    +'&prompt=select_account';
-  // Open popup
-  var w=480,h=600;
-  var left=(screen.width-w)/2,top=(screen.height-h)/2;
-  var popup=window.open(url,'google-login','width='+w+',height='+h+',top='+top+',left='+left);
-  var timer=setInterval(function(){
-    try{
-      if(popup.closed){clearInterval(timer);return;}
-      var hash=popup.location.hash;
-      if(hash&&hash.indexOf('access_token')!==-1){
-        var token=hash.match(/access_token=([^&]+)/)[1];
-        clearInterval(timer);
-        popup.close();
-        verifyGoogleToken(token);
-      }
-    }catch(e){}
-  },300);
+  var url='https://accounts.google.com/o/oauth2/v2/auth?'    +'client_id='+GOOGLE_CLIENT_ID    +'&redirect_uri='+encodeURIComponent(redirectUri)    +'&response_type=token'    +'&scope='+scope    +'&prompt=select_account';
+  window.location.href=url;
 }
 
 function verifyGoogleToken(token){
