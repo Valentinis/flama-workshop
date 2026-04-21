@@ -556,6 +556,13 @@ var currentUser=null;
 function isLoggedIn(){return currentUser!==null;}
 
 function checkAuth(){
+  // Allow ?logout to clear session
+  if(window.location.search.indexOf('logout')!==-1){
+    localStorage.removeItem('flama_user');
+    currentUser=null;
+    history.replaceState(null,null,window.location.pathname);
+    return;
+  }
   // Check if returning from Google OAuth redirect
   var hash=window.location.hash;
   if(hash&&hash.indexOf('access_token')!==-1){
