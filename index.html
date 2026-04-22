@@ -2380,7 +2380,10 @@ window.scrollTo(0, tabScroll[t]||0);
 function updBadge(){var n=sts.filter(function(s){return(s.rec>0&&s.studentType==='regular')||(s.studentType==='gift'&&s.giftActivated&&s.giftClassesLeft>0);}).length;var btn=document.getElementById('tab-pendientes');if(btn){var ex=btn.querySelector('.notif');if(ex)ex.remove();if(n>0){var sp=document.createElement('span');sp.className='notif';sp.textContent=n;btn.appendChild(sp);}}}
 function render(){
 var lb=document.getElementById('logout-bar');
-if(lb&&currentUser){lb.innerHTML='<div style="text-align:right;padding:2px 16px 0;"><span style="font-size:11px;color:var(--text3);">'+currentUser.email+'</span> <button onclick="logout()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding-left:6px;">salir</button></div>';}
+if(lb&&currentUser){
+  var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<button onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:1px 6px;">salir</button>'    +'</div>';
+}
 var el=document.getElementById('content');
 var bar=document.getElementById('sticky-add-bar');
 if(ui.tab==='alumnos'){
