@@ -1879,7 +1879,7 @@ if(cm.addMode){
 
   var listHtml=filtered.length?filtered.map(function(s){
     var meta='@'+s.handle+(s.rec>0&&ca.type==='recuperacion'?' · '+s.rec+' pendiente'+(s.rec>1?'s':''):ca.type==='gift'?' · '+s.giftClassesLeft+' clase'+(s.giftClassesLeft!==1?'s':''):'');
-    return '<div class="slist-item'+(ca.selId===s.id?' sel':'')+'" onclick="ui.cadd.selId='+s.id+';if(ui.cadd.type===\'flamateur\')ui.cadd.flamTipo=sts.find(function(x){return x.id=='+s.id+';}).tipo||'torno';updateCaddList()">'
+    return '<div class="slist-item'+(ca.selId===s.id?' sel':'')+'" onclick="ui.cadd.selId='+s.id+';if(ui.cadd.type===\'flamateur\')ui.cadd.flamTipo=sts.find(function(x){return x.id=='+s.id+';}).tipo||"torno";updateCaddList()">'
       +'<span style="color:'+tCol(s.tipo)+'">'+tIco(s.tipo)+'</span>'
       +'<div><div class="sli-name">'+s.name+'</div><div class="sli-meta">'+meta+'</div></div></div>';
   }).join(''):'<div style="padding:16px;text-align:center;font-size:13px;color:var(--text3);">Sin resultados</div>';
@@ -2101,7 +2101,7 @@ var filtered=ca.query?avail.filter(function(s){return s.name.toLowerCase().inclu
 if(!filtered.length)return '<div style="padding:16px;text-align:center;font-size:13px;color:var(--text3);">Sin resultados</div>';
 return filtered.map(function(s){
 var meta='@'+s.handle+(s.rec>0&&ca.type==='recuperacion'?' · '+s.rec+' pendiente'+(s.rec>1?'s':''):ca.type==='gift'?' · '+s.giftClassesLeft+' clase'+(s.giftClassesLeft!==1?'s':''):'');
-return '<div class="slist-item'+(ca.selId===s.id?' sel':'')+'" onclick="ui.cadd.selId='+s.id+';if(ui.cadd.type===\'flamateur\')ui.cadd.flamTipo=sts.find(function(x){return x.id=='+s.id+';}).tipo||'torno';updateCaddList()">'
+return '<div class="slist-item'+(ca.selId===s.id?' sel':'')+'" onclick="ui.cadd.selId='+s.id+';if(ui.cadd.type===\'flamateur\')ui.cadd.flamTipo=sts.find(function(x){return x.id=='+s.id+';}).tipo||"torno";updateCaddList()">'
 +'<span style="color:'+tCol(s.tipo)+'">'+tIco(s.tipo)+'</span>'
 +'<div><div class="sli-name">'+s.name+'</div><div class="sli-meta">'+meta+'</div></div></div>';
 }).join('');
