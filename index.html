@@ -33,10 +33,10 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:16px;}
 .app{max-width:480px;margin:0 auto;padding:0 0 70px;}
-.header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:12px 16px;position:sticky;top:0;z-index:10;}
+.header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:8px 16px;position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;}
 #sticky-add-bar{padding:8px 0 0;}
-#flama-logo{filter:var(--logo-filter);}
-.header-title{font-size:17px;font-weight:600;margin-bottom:10px;color:var(--text);}
+#flama-logo{filter:var(--logo-filter);background:transparent;}
+.header-title{font-size:17px;font-weight:600;color:var(--text);}
 .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg-card);border-top:1px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom,0);}
 .bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 6px;background:none;border:none;cursor:pointer;color:var(--text2);gap:2px;position:relative;}
 .bnav-btn svg{width:22px;height:22px;flex-shrink:0;}
@@ -756,7 +756,7 @@ function showPagoOk(name,qty){
   clearTimeout(uTimer);
   uTimer=setTimeout(function(){el.innerHTML='';},3000);
 }
-function doUndo(){if(!uSnap)return;sts=uSnap.sts;pagos=uSnap.pagos;ovs=uSnap.ovs;uSnap=null;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='';save();render();}
+function doUndo(){if(navigator.vibrate)navigator.vibrate(200);if(!uSnap)return;sts=uSnap.sts;pagos=uSnap.pagos;ovs=uSnap.ovs;uSnap=null;clearTimeout(uTimer);document.getElementById('uroot').innerHTML='';save();render();}
 function addH(sid,type,text){var s=sts.find(function(x){return x.id==sid;});if(s){if(!s.history)s.history=[];s.history.unshift({date:today(),type:type,text:text});}}
 function hCol(t){return t==='baja'?'#d63b3b':t==='recuperacion'?'#1D9E75':t==='pausa'?'#c07800':t==='pago'?'#185FA5':t==='gift'?'#7a1a9a':'#1D9E75';}
 function getPago(sid,m,y){return pagos.find(function(p){return p.sid===sid&&p.mes===m&&p.yr===y;});}
