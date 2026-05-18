@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.2</title>
+<title>Flama Workshop v1.4.4</title>
 <style>
 :root{
   --logo-filter: none;
@@ -521,6 +521,7 @@ function save(){
       pagos:fbSetField(JSON.stringify(pagos)),
       ovs:fbSetField(JSON.stringify(ovs)),
       interesados:fbSetField(JSON.stringify(interesados)),
+      viewers:fbSetField(JSON.stringify(viewers)),
       nextId:{integerValue:nextId},
       updatedAt:fbSetField(new Date().toISOString())
     }});
@@ -549,6 +550,7 @@ function loadFromFirebase(callback){
             var fbOvs=JSON.parse(f.ovs?f.ovs.stringValue:'[]');
             var fbInt=JSON.parse(f.interesados?f.interesados.stringValue:'[]');
             var fbNextId=f.nextId?+(f.nextId.integerValue||f.nextId.stringValue||100):100;
+            viewers=JSON.parse(f.viewers?f.viewers.stringValue:'[]');
             if(fbSts.length>=sts.length){
               sts=fbSts;pagos=fbPagos;ovs=fbOvs;interesados=fbInt;nextId=fbNextId;
             // localStorage already saved above
@@ -571,8 +573,10 @@ function loadFromFirebase(callback){
 var GOOGLE_CLIENT_ID='716644137397-8kqo52sa799996pfh63ckdrnqlt0gbjg.apps.googleusercontent.com';
 var ALLOWED_EMAILS=['valentinnlopez@gmail.com'];
 var currentUser=null;
+var viewers=[];
 
 function isLoggedIn(){return currentUser!==null;}
+function isViewer(){return currentUser&&viewers.indexOf(currentUser.email)!==-1;}
 
 function checkAuth(){
   // Allow ?logout to clear session
@@ -645,7 +649,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.2';
+  ver.textContent='v1.4.4';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -666,7 +670,7 @@ function verifyGoogleToken(token){
     .then(function(r){return r.json();})
     .then(function(info){
       var email=info.email;
-      if(ALLOWED_EMAILS.indexOf(email)===-1){
+      if(ALLOWED_EMAILS.indexOf(email)===-1&&viewers.indexOf(email)===-1){
         var err=document.getElementById('login-err');
         if(err)err.textContent='Sin acceso: '+email;
         return;
@@ -728,7 +732,7 @@ var collapsed={};
 
 // ─── UI STATE ─────────────────────────────────────────────────────────────────
 var ui={
-tab:'alumnos',modal:null,mview:'actions',moveTarget:null,editNameF:{name:'',handle:''},
+tab:isViewer()?'clases':'alumnos',modal:null,mview:'actions',moveTarget:null,editNameF:{name:'',handle:''},
 addForm:{name:'',handle:'',tipo:'torno',cuota:100,err:'',stype:'regular',cid:null,joinNow:true,joinDate:today(),sug:''},
 weekOff:0,curM:new Date().getMonth(),curY:new Date().getFullYear(),statsModal:false,statsM:new Date().getMonth(),statsY:new Date().getFullYear(),
 cm:null,csub:null,csel:null,
@@ -1267,6 +1271,23 @@ h+='</div>';
 
 
 });
+h+='<div class="sblock"><div class="slabel" style="cursor:default;">Acceso de solo lectura</div>';
+h+='<div class="card">';
+if(viewers.length){
+  viewers.forEach(function(email,i){
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-row);">'
+      +'<span style="font-size:13px;">'+email+'</span>'
+      +'<button onclick="doRemoveViewer(\''+email+'\')" style="background:#ffeaea;color:#b03030;border:none;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;">Eliminar</button>'
+      +'</div>';
+  });
+}else{
+  h+='<div style="font-size:13px;color:var(--text2);padding:8px 0;">Sin viewers</div>';
+}
+h+='<div style="display:flex;gap:8px;margin-top:10px;">'
+  +'<input id="viewer-input" type="email" placeholder="email@ejemplo.com" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">'
+  +'<button onclick="doAddViewer()" style="background:#1a1a1a;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Añadir</button>'
+  +'</div>';
+h+='</div></div>';
 return h;
 }
 
@@ -1515,7 +1536,7 @@ return h;
 
 // ─── MODAL OPENERS ────────────────────────────────────────────────────────────
 function openSM(sid){ui.modal=+sid;ui.mview='actions';ui.moveTarget=null;var s=sts.find(function(x){return x.id==sid;});if(s){ui.pausaF={ini:today(),fin:'',motivo:''};ui.reactF={cid:s.classId,tipo:s.tipo,conv:false,err:''};ui.leaveF={now:true,date:today()};}renderM();}
-function openCM(sid,cid,monStr){ui.cm={sid:+sid,cid:+cid,monStr:String(monStr)};ui.csub=null;ui.csel=null;renderM();}
+function openCM(sid,cid,monStr){if(isViewer())return;ui.cm={sid:+sid,cid:+cid,monStr:String(monStr)};ui.csub=null;ui.csel=null;renderM();}
 function openAddToClass(cid,monStr){ui.cm={sid:null,cid:+cid,monStr:monStr,addMode:true};ui.cadd={type:'recuperacion',query:'',selId:null};renderM();}
 function openPM(sid){var ex=getPago(sid,ui.curM,ui.curY);ui.pagoMod={sid:+sid,cantidad:'',nota:'',metodo:ex&&ex.metodo||'Transferencia'};renderM();}
 function openUpgrade(sid){openSM(sid);setTimeout(function(){var s=sts.find(function(x){return x.id==sid;});ui.mview='upgrade';ui.upgrF={cid:null,tipo:s?s.tipo:'torno',cuota:100};renderM();},50);}
@@ -2307,6 +2328,22 @@ function doRecAdelanto(sid,monStr,cid){
   addH(sid,'recuperacion','Recuperación por adelantado — '+c.day+' '+c.start+' (semana '+monStr+')');
   save();closeCM();showU('Recuperación — @'+s.handle,sn);
 }
+function doAddViewer(){
+  var input=document.getElementById('viewer-input');
+  if(!input)return;
+  var email=input.value.trim().toLowerCase();
+  if(!email||email.indexOf('@')===-1)return;
+  if(ALLOWED_EMAILS.indexOf(email)!==-1){showU('Ese email ya es admin');return;}
+  if(viewers.indexOf(email)!==-1){showU('Ya tiene acceso');return;}
+  viewers.push(email);
+  save();render();
+  showU('Acceso añadido: '+email);
+}
+function doRemoveViewer(email){
+  viewers=viewers.filter(function(e){return e!==email;});
+  save();render();
+  showU('Acceso eliminado: '+email);
+}
 function doAdelantaClase(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});s.rec=(s.rec||0)-1;addH(sid,'recuperacion','Clase adelantada — '+c.day+' '+c.start+' (semana '+monStr+') — crédito: '+Math.abs(s.rec));save();closeCM();showU('Adelantada — @'+s.handle,sn);}
 function doMarcarBaja(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});if(s.rec<0){s.rec++;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+') — consume crédito adelantado');}else{s.rec=(s.rec||0)+1;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+')');}ovs=ovs.filter(function(o){return!(o.sid===sid&&o.week===monStr&&o.fromCid===cid);});ovs.push({sid:sid,week:monStr,fromCid:cid,toCid:-1,type:'baja'});save();closeCM();showU('Baja — @'+s.handle,sn);}
 function openReactivar(cid,tipo){
@@ -2448,8 +2485,10 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.2</span>'    +pic    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<button onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:1px 6px;">salir</button>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.4</span>'    +pic    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<button onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:1px 6px;">salir</button>'    +'</div>';
 }
+var nav=document.querySelector('.bottom-nav');
+if(nav)nav.style.display=isViewer()?'none':'';
 var el=document.getElementById('content');
 var bar=document.getElementById('sticky-add-bar');
 if(ui.tab==='alumnos'){
