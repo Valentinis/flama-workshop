@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4</title>
+<title>Flama Workshop v1.4.1</title>
 <style>
 :root{
   --logo-filter: none;
@@ -438,6 +438,7 @@ if(s.studentType==='gift'){return getOvs(s.id,monStr).some(function(o){return o.
 if(s.studentType==='recharge'){return getOvs(s.id,monStr).some(function(o){return o.type==='recharge'&&o.toCid===cid;});}
 if(!isActiveWeek(s,monStr))return false;
 var all=getOvs(s.id,monStr);
+if(all.some(function(o){return o.type==='extra'&&o.toCid===cid;}))return true;
 if(all.some(function(o){return(o.type==='recuperacion'||o.type==='gift')&&o.toCid===cid;}))return true;
 if(all.some(function(o){return o.type==='cambio'&&o.toCid===cid;}))return true;
 if(s.classId===cid){
@@ -455,6 +456,7 @@ if(s.studentType==='gift'){return getOvs(s.id,monStr).some(function(o){return o.
 if(s.studentType==='recharge'){return getOvs(s.id,monStr).some(function(o){return o.type==='recharge'&&o.toCid===cid;});}
 if(s.status==='pausa')return s.classId===cid;
 var all=getOvs(s.id,monStr);
+if(all.some(function(o){return o.type==='extra'&&o.toCid===cid;}))return true;
 if(all.some(function(o){return(o.type==='recuperacion'||o.type==='gift')&&o.toCid===cid;}))return true;
 if(all.some(function(o){return o.type==='cambio'&&o.toCid===cid;}))return true;
 if(s.classId===cid){
