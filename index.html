@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.1</title>
+<title>Flama Workshop v1.4.2</title>
 <style>
 :root{
   --logo-filter: none;
@@ -72,6 +72,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ch-pending{background:#e1f5ee;color:#0a6e50;border-color:#9FE1CB;font-style:italic;}
 .ch-add{background:none;border:1px dashed var(--text3);color:var(--text2);font-size:13px;}
 .rec-badge{font-size:10px;background:#ffeaea;color:#b03030;border-radius:10px;padding:1px 5px;font-weight:700;}
+.rec-ahead-badge{font-size:10px;background:#e1f5ee;color:#0a6e50;border-radius:10px;padding:1px 5px;font-weight:700;}
 .srow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border-row);cursor:pointer;}
 .srow:last-of-type{border-bottom:none;}
 .sname{font-size:15px;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--text);}
@@ -197,6 +198,7 @@ textarea{resize:none;height:70px;}
   .ps-part{background:#2a1a00;color:#ffc060;}
   /* Badges */
   .rec-badge{background:#3d1515;color:#ff8080;}
+  .rec-ahead-badge{background:#0a2010;color:#5de0a0;}
   .paid-badge{color:#5de0a0;}
   .unpaid-badge{color:#ffa020;}
   /* Spots */
@@ -643,7 +645,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4';
+  ver.textContent='v1.4.2';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -832,7 +834,7 @@ var isFlam=s.studentType==='flamateur';
 var isRecharge=s.studentType==='recharge';
 var chipCls=isPausa?'chip ch-pausa':isPend?'chip ch-pending':isAboutToPause?'chip ch-pause-sched':isAbsMoved?'chip ch-cambio':isAbs?'chip ch-baja':isGiftV?'chip ch-gift':isFlamV?'chip ch-flam':isRechargeV?'chip ch-recharge':isExtraV?'chip ch-extra':isRec?'chip ch-rec':isVisit?'chip ch-visit':isFlam?'chip ch-flam':isRecharge?'chip ch-recharge':'chip ch-active';
 // (chips never ghosted - only day labels)
-var badge=s.rec>0&&!isPausa&&!isPend?'<span class="rec-badge">'+s.rec+'</span>':'';
+var badge=s.rec>0&&!isPausa&&!isPend?'<span class="rec-badge">'+s.rec+'</span>':s.rec<0&&!isPausa&&!isPend?'<span class="rec-ahead-badge">+'+Math.abs(s.rec)+'</span>':'';
 var arr2=isVisit||isGiftV||isRec?'↩':'';
 var payBadge=(!isPausa&&!isPend&&s.studentType!=='gift'&&s.studentType!=='flamateur'&&s.studentType!=='recharge')?getPayBadge(s,monStr,cid):'';
 h+='<div class="'+chipCls+'" onclick="openCM('+s.id+','+cid+',\''+ monStr +'\')">'+tIco(tipo)+' @'+s.handle+badge+payBadge+arr2+'</div>';
@@ -1018,7 +1020,7 @@ if(s.status==='pausa')meta+=' · <span style="color:#c07800;">en pausa'+( s.paus
 if(s.pausaScheduled)meta+=' · <span style="background:#fff3e0;color:#c07800;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:500;">⏸ pausa el '+fmtDS(s.pausaInicio)+'</span>';
 if(od)meta+=' · <span style="color:#b03030;font-weight:600;">'+od+'d vencida</span>';
 }
-var recBadge=s.rec>0?' <span class="rec-badge">'+s.rec+'</span>':'';
+var recBadge=s.rec>0?' <span class="rec-badge">'+s.rec+'</span>':s.rec<0?' <span class="rec-ahead-badge">+'+Math.abs(s.rec)+'</span>':'';
 return '<div class="srow" onclick="openSM('+s.id+')">'
 +'<div>'
 +'<div class="sname">'+tIco(s.tipo)+(s.studentType==='gift'?ICO_G:'')+' '+s.name+recBadge+'</div>'
@@ -1249,7 +1251,7 @@ return arr.map(function(s){
   else if(s.pausaScheduled)meta+=' · <span style="background:#fff3e0;color:#c07800;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:500;">⏸ pausa el '+fmtDS(s.pausaInicio)+'</span>';
   else if(ip)meta+=' · <span class="tag tag-p">Nuevo a partir del '+fmtDS(s.joinDate)+'</span>';
   if(hl&&!ip)meta+=' · <span style="color:#b03030;font-size:11px;">Baja '+fmtDS(s.leaveDate)+'</span>';
-  var recBadge=s.rec>0?' <span class="rec-badge">'+s.rec+'</span>':'';
+  var recBadge=s.rec>0?' <span class="rec-badge">'+s.rec+'</span>':s.rec<0?' <span class="rec-ahead-badge">+'+Math.abs(s.rec)+'</span>':'';
   return '<div class="srow" onclick="openSM('+s.id+')">'
     +'<div><div class="sname">'+tIco(s.tipo)+' '+s.name+recBadge+'</div>'
     +'<div class="shandle">@'+s.handle+'</div>'
@@ -1363,8 +1365,9 @@ return h;
 // ─── PENDIENTES ───────────────────────────────────────────────────────────────
 function renderPendientes(){
 var reg=sortN(sts.filter(function(s){return s.rec>0&&s.studentType==='regular';}));
+var adelantadas=sortN(sts.filter(function(s){return s.rec<0&&s.studentType==='regular'&&s.status!=='deleted';}));
 var espo=sortN(sts.filter(function(s){return s.studentType==='gift'&&s.giftActivated&&s.giftClassesLeft>0;}));
-if(!reg.length&&!espo.length)return '<div class="empty">Sin clases pendientes</div>';
+if(!reg.length&&!espo.length&&!adelantadas.length)return '<div class="empty">Sin clases pendientes</div>';
 var h='';
 if(reg.length){
 var byC={};
@@ -1384,6 +1387,18 @@ h+='<div class="ritem">'
 +'</div></div>';
 });
 h+='</div>';
+});
+h+='</div>';
+}
+if(adelantadas.length){
+h+='<div class="sblock"><div class="slabel" style="cursor:default;">Clases adelantadas ('+adelantadas.length+')</div>';
+adelantadas.forEach(function(s){
+var c=CLS.find(function(x){return x.id===s.classId;});
+h+='<div class="rlist"><div class="ritem" style="border-bottom:none;">'
++'<div><div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:5px;">'+tIco(s.tipo)+' '+s.name+'</div>'
++'<div class="shandle">@'+s.handle+(c?' · '+c.day+' '+c.start:'')+'</div></div>'
++'<span style="font-size:12px;background:#e1f5ee;color:#0a6e50;border-radius:20px;padding:3px 10px;font-weight:500;">+'+Math.abs(s.rec)+' adelantada'+(Math.abs(s.rec)!==1?'s':'')+'</span>'
++'</div></div>';
 });
 h+='</div>';
 }
@@ -1952,8 +1967,9 @@ var subTxt=isAbs?'Cancelar baja puntual':isGift2?'Devuelve 1 clase a la gift car
   }
 }
 if(!isAbs&&!isAbsM&&!isVisit&&!isGift2&&!isRec2&&!isFlamV2&&!isRechargeV2){
-  rows+='<div class="arow" onclick="doMarcarBaja('+cm.sid+',\''+ cm.monStr +'\','+cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">No viene esta clase</div><div class="asub">+1 recuperación pendiente</div></div></div>'
-  +(s3.rec>0?'<div class="arow" onclick="doRecAdelanto('+cm.sid+',\''+ cm.monStr +'\','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">−1</div><div><div class="atxt">Recuperar por adelantado</div><div class="asub">Viene y descuenta 1 pendiente ('+s3.rec+' pendientes)</div></div></div>':'')
+  rows+='<div class="arow" onclick="doMarcarBaja('+cm.sid+',\'"+ cm.monStr +"\','+cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">No viene esta clase</div><div class="asub">+1 recuperación pendiente</div></div></div>'
+  +'<div class="arow" onclick="doAdelantaClase('+cm.sid+',\'"+ cm.monStr +"\','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">+1</div><div><div class="atxt">Adelanta clase futura</div><div class="asub">Acumula crédito ('+Math.abs(s3.rec<0?s3.rec:0)+' acumulado'+(s3.rec<=-2?'s':'')+')</div></div></div>'
+  +(s3.rec>0?'<div class="arow" onclick="doRecAdelanto('+cm.sid+',\'"+ cm.monStr +"\','+cm.cid+')"><div class="aico" style="background:#e1f5ee;">−1</div><div><div class="atxt">Recuperar por adelantado</div><div class="asub">Viene y descuenta 1 pendiente ('+s3.rec+' pendientes)</div></div></div>':'')
     +'<div class="arow" onclick="ui.csub=&apos;move&apos;;ui.csel=null;renderM()"><div class="aico" style="background:#e8f0fe;">→</div><div><div class="atxt">Va a otra clase esta semana</div></div></div>';
 }
 
@@ -2291,7 +2307,8 @@ function doRecAdelanto(sid,monStr,cid){
   addH(sid,'recuperacion','Recuperación por adelantado — '+c.day+' '+c.start+' (semana '+monStr+')');
   save();closeCM();showU('Recuperación — @'+s.handle,sn);
 }
-function doMarcarBaja(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});s.rec=(s.rec||0)+1;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+')');ovs=ovs.filter(function(o){return!(o.sid===sid&&o.week===monStr&&o.fromCid===cid);});ovs.push({sid:sid,week:monStr,fromCid:cid,toCid:-1,type:'baja'});save();closeCM();showU('Baja — @'+s.handle,sn);}
+function doAdelantaClase(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});s.rec=(s.rec||0)-1;addH(sid,'recuperacion','Clase adelantada — '+c.day+' '+c.start+' (semana '+monStr+') — crédito: '+Math.abs(s.rec));save();closeCM();showU('Adelantada — @'+s.handle,sn);}
+function doMarcarBaja(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});if(s.rec<0){s.rec++;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+') — consume crédito adelantado');}else{s.rec=(s.rec||0)+1;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+')');}ovs=ovs.filter(function(o){return!(o.sid===sid&&o.week===monStr&&o.fromCid===cid);});ovs.push({sid:sid,week:monStr,fromCid:cid,toCid:-1,type:'baja'});save();closeCM();showU('Baja — @'+s.handle,sn);}
 function openReactivar(cid,tipo){
   ui.mview='reactivar';
   ui.reactF={cid:cid,tipo:tipo,conv:false,err:''};
@@ -2431,7 +2448,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4</span>'    +pic    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<button onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:1px 6px;">salir</button>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.2</span>'    +pic    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<button onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:1px 6px;">salir</button>'    +'</div>';
 }
 var el=document.getElementById('content');
 var bar=document.getElementById('sticky-add-bar');
