@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.4</title>
+<title>Flama Workshop v1.4.5</title>
 <style>
 :root{
   --logo-filter: none;
@@ -300,6 +300,11 @@ textarea{resize:none;height:70px;}
 </div>
 <div id="mroot"></div>
 <div id="uroot"></div>
+<div id="settings-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:rgba(0,0,0,0.5);" onclick="closeSettings()">
+  <div onclick="event.stopPropagation()" style="position:absolute;top:60px;right:12px;background:#1a1a1a;border:1px solid #333;border-radius:16px;width:280px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div id="settings-content"></div>
+  </div>
+</div>
 <script>
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -649,7 +654,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.4';
+  ver.textContent='v1.4.5';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1271,23 +1276,6 @@ h+='</div>';
 
 
 });
-h+='<div class="sblock"><div class="slabel" style="cursor:default;">Acceso de solo lectura</div>';
-h+='<div class="card">';
-if(viewers.length){
-  viewers.forEach(function(email,i){
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-row);">'
-      +'<span style="font-size:13px;">'+email+'</span>'
-      +'<button onclick="doRemoveViewer(\''+email+'\')" style="background:#ffeaea;color:#b03030;border:none;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;">Eliminar</button>'
-      +'</div>';
-  });
-}else{
-  h+='<div style="font-size:13px;color:var(--text2);padding:8px 0;">Sin viewers</div>';
-}
-h+='<div style="display:flex;gap:8px;margin-top:10px;">'
-  +'<input id="viewer-input" type="email" placeholder="email@ejemplo.com" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">'
-  +'<button onclick="doAddViewer()" style="background:#1a1a1a;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Añadir</button>'
-  +'</div>';
-h+='</div></div>';
 return h;
 }
 
@@ -2328,6 +2316,37 @@ function doRecAdelanto(sid,monStr,cid){
   addH(sid,'recuperacion','Recuperación por adelantado — '+c.day+' '+c.start+' (semana '+monStr+')');
   save();closeCM();showU('Recuperación — @'+s.handle,sn);
 }
+function openSettings(){
+  var sc=document.getElementById('settings-content');
+  if(!sc)return;
+  var h='';
+  // Viewers section - solo admin
+  if(!isViewer()){
+    h+='<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Acceso de solo lectura</div>';
+    if(viewers.length){
+      viewers.forEach(function(email){
+        h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2a;">'
+          +'<span style="font-size:13px;color:var(--text);">'+email+'</span>'
+          +'<button onclick="doRemoveViewer(\''+email+'\')" style="background:#3d1515;color:#ff8080;border:none;border-radius:8px;padding:3px 10px;font-size:11px;cursor:pointer;">Eliminar</button>'
+          +'</div>';
+      });
+    }else{
+      h+='<div style="font-size:13px;color:var(--text2);padding:4px 0 10px;">Sin viewers</div>';
+    }
+    h+='<div style="display:flex;gap:8px;margin-top:10px;margin-bottom:16px;">'
+      +'<input id="viewer-input" type="email" placeholder="email@ejemplo.com" style="flex:1;padding:7px 10px;border-radius:10px;border:1px solid #333;background:#111;color:var(--text);font-size:13px;">'
+      +'<button onclick="doAddViewer()" style="background:#1D9E75;color:#fff;border:none;border-radius:10px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;">Añadir</button>'
+      +'</div>';
+    h+='<div style="border-top:1px solid #2a2a2a;margin-bottom:12px;"></div>';
+  }
+  // Cerrar sesión
+  h+='<button onclick="logout()" style="width:100%;padding:10px;border-radius:12px;border:1px solid #333;background:none;color:var(--text2);font-size:14px;cursor:pointer;text-align:left;">Cerrar sesión</button>';
+  sc.innerHTML=h;
+  document.getElementById('settings-modal').style.display='block';
+}
+function closeSettings(){
+  document.getElementById('settings-modal').style.display='none';
+}
 function doAddViewer(){
   var input=document.getElementById('viewer-input');
   if(!input)return;
@@ -2336,12 +2355,12 @@ function doAddViewer(){
   if(ALLOWED_EMAILS.indexOf(email)!==-1){showU('Ese email ya es admin');return;}
   if(viewers.indexOf(email)!==-1){showU('Ya tiene acceso');return;}
   viewers.push(email);
-  save();render();
+  save();openSettings();
   showU('Acceso añadido: '+email);
 }
 function doRemoveViewer(email){
   viewers=viewers.filter(function(e){return e!==email;});
-  save();render();
+  save();openSettings();
   showU('Acceso eliminado: '+email);
 }
 function doAdelantaClase(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});s.rec=(s.rec||0)-1;addH(sid,'recuperacion','Clase adelantada — '+c.day+' '+c.start+' (semana '+monStr+') — crédito: '+Math.abs(s.rec));save();closeCM();showU('Adelantada — @'+s.handle,sn);}
@@ -2485,7 +2504,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.4</span>'    +pic    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<button onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:1px 6px;">salir</button>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.5</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
