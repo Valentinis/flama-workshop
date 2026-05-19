@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.8</title>
+<title>Flama Workshop v1.4.9</title>
 <style>
 :root{
   --logo-filter: none;
@@ -654,7 +654,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.8';
+  ver.textContent='v1.4.9';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1543,7 +1543,115 @@ return h;
 
 // ─── MODAL OPENERS ────────────────────────────────────────────────────────────
 function openSM(sid){ui.modal=+sid;ui.mview='actions';ui.moveTarget=null;var s=sts.find(function(x){return x.id==sid;});if(s){ui.pausaF={ini:today(),fin:'',motivo:''};ui.reactF={cid:s.classId,tipo:s.tipo,conv:false,err:''};ui.leaveF={now:true,date:today()};}renderM();}
-function openCM(sid,cid,monStr){if(isViewer())return;ui.cm={sid:+sid,cid:+cid,monStr:String(monStr)};ui.csub=null;ui.csel=null;renderM();}
+function openCM(sid,cid,monStr){
+  if(isViewer()){openCMViewer(sid,cid,monStr);return;}
+  ui.cm={sid:+sid,cid:+cid,monStr:String(monStr)};ui.csub=null;ui.csel=null;renderM();
+}
+
+function openCMViewer(sid,cid,monStr){
+  sid=+sid;cid=+cid;monStr=String(monStr);
+  var s=sts.find(function(x){return x.id===sid;});
+  if(!s)return;
+  var c=CLS.find(function(x){return x.id===cid;});
+  var allO=getOvs(s.id,monStr);
+  var ovFrom=allO.find(function(o){return o.fromCid===cid;});
+  var ovTo=allO.find(function(o){return o.toCid===cid&&s.classId!==cid;});
+  var isAbs=ovFrom&&ovFrom.type==='baja';
+  var isAbsM=ovFrom&&ovFrom.type==='cambio';
+  var isVisit=ovTo&&ovTo.type==='cambio';
+  var isGift=ovTo&&ovTo.type==='gift';
+  var isRec=ovTo&&ovTo.type==='recuperacion';
+  var isFlamV=ovTo&&ovTo.type==='flamateur';
+  var isRechargeV=ovTo&&ovTo.type==='recharge';
+  var isExtraV=ovTo&&ovTo.type==='extra';
+  var isAhead=allO.some(function(o){return o.type==='extra'&&o.toCid===cid;});
+  var isPausa=s.status==='pausa';
+  var isFlam=s.studentType==='flamateur';
+  var isGiftS=s.studentType==='gift';
+  var isRechargeS=s.studentType==='recharge';
+
+  // Determinar estado
+  var estado='';
+  var estadoColor='#aaa';
+  if(isPausa){
+    estado='En pausa';
+    if(s.pausaInicio&&s.pausaFin)estado+=' ('+fmtDS(s.pausaInicio)+' – '+fmtDS(s.pausaFin)+')';
+    estadoColor='#888';
+  } else if(isAbs){
+    estado='No viene esta semana';
+    if(s.rec>0)estado+=' · '+s.rec+' clase'+(s.rec>1?'s':'')+' pendiente'+(s.rec>1?'s':'');
+    estadoColor='#ff8080';
+  } else if(isAbsM){
+    estado='Va a otra clase esta semana';
+    estadoColor='#f0844a';
+  } else if(isExtraV||isAhead){
+    var ahead=Math.abs(s.rec);
+    estado='Clase extra'+(ahead>0?' · '+ahead+' clase'+(ahead!==1?'s':'')+' adelantada'+(ahead!==1?'s':''):'');
+    estadoColor='#5de0a0';
+  } else if(isRec){
+    estado='Recuperando clase';
+    if(s.classId){var orig=CLS.find(function(x){return x.id===s.classId;});if(orig)estado+=' (su clase es '+orig.day+' '+orig.start+')';}
+    estadoColor='#5de0a0';
+  } else if(isVisit){
+    estado='Cambio de clase esta semana';
+    estadoColor='#f0844a';
+  } else if(isGift){
+    estado='Gift card · clase '+(s.giftTotal-(s.giftClassesLeft-1))+' de '+s.giftTotal;
+    estadoColor='#c97aff';
+  } else if(isFlamV){
+    var flamOv=ovTo;
+    estado='Flamateur · '+(flamOv&&flamOv.flamTipo?flamOv.flamTipo:'sesión');
+    estadoColor='#f0844a';
+  } else if(isRechargeV){
+    var recOv=ovTo;
+    estado='Tarjeta recargable · '+(recOv&&recOv.rechargeTipo?recOv.rechargeTipo:'sesión');
+    estadoColor='#5bc8f5';
+  } else if(isFlam){
+    estado='Flamateur';
+    estadoColor='#f0844a';
+  } else if(isGiftS){
+    var claseN=s.giftTotal-(s.giftClassesLeft-1);
+    estado='Gift card · clase '+claseN+' de '+s.giftTotal;
+    estadoColor='#c97aff';
+  } else if(isRechargeS){
+    estado='Tarjeta recargable';
+    estadoColor='#5bc8f5';
+  } else {
+    // Regular activo
+    var tip=tIco(s.tipo)+' '+s.tipo;
+    if(s.rec<0){
+      estado=tip+' · '+Math.abs(s.rec)+' clase'+(Math.abs(s.rec)!==1?'s':'')+' adelantada'+(Math.abs(s.rec)!==1?'s':'');
+      estadoColor='#5de0a0';
+    } else if(s.rec>0){
+      estado=tip+' · '+s.rec+' pendiente'+(s.rec>1?'s':'');
+      estadoColor='#ff8080';
+    } else {
+      estado=tip+' · al día';
+      estadoColor='#5de0a0';
+    }
+  }
+
+  var html='<div class="moverlay" onclick="closeCMViewer()"><div class="msheet" onclick="event.stopPropagation()">'
+    +'<div class="mhandle"></div>'
+    +'<div class="mname">'+tIco(s.tipo)+' '+s.name+'</div>'
+    +'<div class="msub">@'+s.handle+' · '+(c?c.day+' '+c.start:'')+'</div>'
+    +'<div style="margin-top:16px;padding:14px;background:#1a1a1a;border-radius:12px;">'
+    +'<div style="font-size:12px;color:#666;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Estado esta semana</div>'
+    +'<div style="font-size:15px;font-weight:600;color:'+estadoColor+';">'+estado+'</div>'
+    +'</div>'
+    +'<button onclick="closeCMViewer()" style="margin-top:16px;width:100%;padding:12px;border-radius:12px;border:1px solid #333;background:none;color:var(--text2);font-size:14px;cursor:pointer;">Cerrar</button>'
+    +'</div></div>';
+
+  var overlay=document.createElement('div');
+  overlay.id='viewer-cm-overlay';
+  overlay.innerHTML=html;
+  document.body.appendChild(overlay);
+}
+
+function closeCMViewer(){
+  var el=document.getElementById('viewer-cm-overlay');
+  if(el)el.remove();
+}
 function openAddToClass(cid,monStr){ui.cm={sid:null,cid:+cid,monStr:monStr,addMode:true};ui.cadd={type:'recuperacion',query:'',selId:null};renderM();}
 function openPM(sid){var ex=getPago(sid,ui.curM,ui.curY);ui.pagoMod={sid:+sid,cantidad:'',nota:'',metodo:ex&&ex.metodo||'Transferencia'};renderM();}
 function openUpgrade(sid){openSM(sid);setTimeout(function(){var s=sts.find(function(x){return x.id==sid;});ui.mview='upgrade';ui.upgrF={cid:null,tipo:s?s.tipo:'torno',cuota:100};renderM();},50);}
@@ -2523,7 +2631,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.8</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.9</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
