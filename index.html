@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.14</title>
+<title>Flama Workshop v1.4.15</title>
 <style>
 :root{
   --logo-filter: none;
@@ -654,7 +654,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.14';
+  ver.textContent='v1.4.15';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -2636,7 +2636,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.14</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.15</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
@@ -2815,33 +2815,38 @@ if(!isLoggedIn()){
   });
   // Pull-to-refresh para viewers
   if(isViewer()){
-    var _ptr={startY:0,pulling:false,indicator:null};
+    var _ptr={ty:0,active:false,done:false,bar:null};
+    var _content=document.getElementById('content');
     document.addEventListener('touchstart',function(e){
-      if(window.scrollY===0&&e.touches.length===1){
-        _ptr.startY=e.touches[0].clientY;
-        _ptr.pulling=true;
+      var el=document.getElementById('content');
+      if(!el)return;
+      var rect=el.getBoundingClientRect();
+      if(rect.top>=44){  // content at top = scrolled to top
+        _ptr.ty=e.touches[0].clientY;
+        _ptr.active=true;
+        _ptr.done=false;
       }
     },{passive:true});
     document.addEventListener('touchmove',function(e){
-      if(!_ptr.pulling)return;
-      var dy=e.touches[0].clientY-_ptr.startY;
-      if(dy>60&&!_ptr.indicator){
-        _ptr.indicator=document.createElement('div');
-        _ptr.indicator.textContent='↓ Actualizando...';
-        _ptr.indicator.style.cssText='position:fixed;top:44px;left:0;right:0;text-align:center;background:#1D9E75;color:#fff;padding:8px;font-size:13px;font-weight:600;z-index:999;';
-        document.body.appendChild(_ptr.indicator);
+      if(!_ptr.active)return;
+      var dy=e.touches[0].clientY-_ptr.ty;
+      if(dy>70&&!_ptr.done&&!_ptr.bar){
+        _ptr.bar=document.createElement('div');
+        _ptr.bar.innerHTML='&#8635; Suelta para actualizar';
+        _ptr.bar.style.cssText='position:fixed;top:44px;left:0;right:0;text-align:center;background:#1D9E75;color:#fff;padding:8px;font-size:13px;font-weight:600;z-index:999;transition:opacity 0.2s;';
+        document.body.appendChild(_ptr.bar);
       }
     },{passive:true});
     document.addEventListener('touchend',function(){
-      if(_ptr.indicator){
-        _ptr.indicator.remove();
-        _ptr.indicator=null;
+      if(_ptr.bar){
+        _ptr.bar.remove();
+        _ptr.bar=null;
         loadFromFirebase(function(){
           try{if(isViewer())ui.tab='clases';render();}catch(e){}
-          showU('Actualizado');
+          showU('Actualizado ✓');
         });
       }
-      _ptr.pulling=false;
+      _ptr.active=false;
     },{passive:true});
   }
   // Polling para viewers: refresca datos cada 30s si hay cambios
