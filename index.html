@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.10</title>
+<title>Flama Workshop v1.4.11</title>
 <style>
 :root{
   --logo-filter: none;
@@ -654,7 +654,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.10';
+  ver.textContent='v1.4.11';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1858,11 +1858,12 @@ content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=
 }
 else if(ui.mview==='tipo'){
 var nt=s.tipo==='torno'?'modelado':'torno';
-var used=sts.filter(function(st){return st.classId===s.classId&&isActive(st)&&st.tipo===nt;}).length;
-var max2=nt==='torno'?MAX_T:MAX_M;var ok2=used<max2;
+var isFlam2=s.studentType==='flamateur';
+var used=isFlam2?0:sts.filter(function(st){return st.classId===s.classId&&isActive(st)&&st.tipo===nt;}).length;
+var max2=nt==='torno'?MAX_T:MAX_M;var ok2=isFlam2||(used<max2);
 content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">← Volver</button></div>'
 +'<p style="font-size:14px;color:var(--text2);margin-bottom:10px;">Cambiar de <b>'+s.tipo+'</b> a <b>'+nt+'</b>.</p>'
-+'<p style="font-size:13px;margin-bottom:12px;color:'+(ok2?'#1D9E75':'#d63b3b')+'">'+(ok2?'Hay hueco ('+used+'/'+max2+')':'Sin hueco ('+used+'/'+max2+')')+'</p>'
++(!isFlam2?'<p style="font-size:13px;margin-bottom:12px;color:'+(ok2?'#1D9E75':'#d63b3b')+'">'+(ok2?'Hay hueco ('+used+'/'+max2+')':'Sin hueco ('+used+'/'+max2+')')+'</p>':'')
 +'<div class="btn-row"><button class="btn" onclick="ui.mview=\'actions\';renderM()">Cancelar</button>'
 +(ok2?'<button class="btn btn-p" onclick="doChangeTipo()">Confirmar</button>':'<button class="btn btn-p" style="opacity:0.4;pointer-events:none">Confirmar</button>')
 +'</div>';
@@ -2631,7 +2632,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.10</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.11</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
