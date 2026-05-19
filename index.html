@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.11</title>
+<title>Flama Workshop v1.4.12</title>
 <style>
 :root{
   --logo-filter: none;
@@ -654,7 +654,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.11';
+  ver.textContent='v1.4.12';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -828,11 +828,13 @@ function chipTipoSection(arr,cid,monStr,tipo){
 var f=sortN(arr.filter(function(s){
   if(s.studentType==='flamateur'){
     var ov=ovs.find(function(o){return o.sid===s.id&&o.week===monStr&&o.type==='flamateur'&&o.toCid===cid;});
-    if(ov&&ov.flamTipo)return ov.flamTipo===tipo;
+    if(ov){return (ov.flamTipo||s.tipo||'torno')===tipo;}
+    return s.tipo===tipo;
   }
   if(s.studentType==='recharge'){
     var ov2=ovs.find(function(o){return o.sid===s.id&&o.week===monStr&&o.type==='recharge'&&o.toCid===cid;});
-    if(ov2&&ov2.rechargeTipo)return ov2.rechargeTipo===tipo;
+    if(ov2){return (ov2.rechargeTipo||s.tipo||'torno')===tipo;}
+    return s.tipo===tipo;
   }
   return s.tipo===tipo;
 }));
@@ -2271,6 +2273,8 @@ if(!ui.cm||!ui.cm.addMode)return;
 var list=document.getElementById('cadd-list');
 if(list)list.innerHTML=getCaddListHTML(ui.cm.cid,ui.cm.monStr);
 var selS=ui.cadd.selId?sts.find(function(x){return x.id===ui.cadd.selId;}):null;
+if(selS&&ui.cadd.type==='flamateur')ui.cadd.flamTipo=selS.tipo||'torno';
+if(selS&&ui.cadd.type==='recharge')ui.cadd.rechargeTipo=selS.tipo||'torno';
 var sd=document.getElementById('cadd-sel');
 if(sd)sd.innerHTML=selS?'Seleccionado: <b>'+selS.name+'</b> (@'+selS.handle+')':'';
 }
@@ -2632,7 +2636,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.11</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.12</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
