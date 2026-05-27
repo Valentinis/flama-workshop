@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.29</title>
+<title>Flama Workshop v1.4.31</title>
 <style>
 :root{
   --logo-filter: none;
@@ -574,7 +574,15 @@ function sendPagoToMiGestor(sid, mes, yr){
   p._migestor = 'sending';
   save(); render();
   // Fecha: usar la fecha real de pago si existe, si no el último día del mes
-  var fechaStr = p.fechaPago || (yr+'-'+String(mes+1).padStart(2,'0')+'-'+String(new Date(yr, mes+1, 0).getDate()).padStart(2,'0'));
+  // Fecha: 1) fechaPago guardada, 2) buscar en historial del alumno, 3) hoy
+  var fechaStr = p.fechaPago || '';
+  if(!fechaStr && s.history){
+    var payHist = s.history.find(function(h){
+      return h.type==='pago' && h.text && h.text.indexOf(MONTHS[mes])!==-1 && h.text.indexOf(String(yr))!==-1;
+    });
+    if(payHist && payHist.date) fechaStr = payHist.date;
+  }
+  if(!fechaStr) fechaStr = new Date().toISOString().slice(0,10);
   var horaStr = (new Date()).toTimeString().slice(0,5);
   var concepto = p.nota || ('Clases de cerámica · ' + MONTHS[mes] + ' ' + yr);
   pushPagoToMiGestor({
@@ -778,7 +786,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.29';
+  ver.textContent='v1.4.31';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1949,7 +1957,18 @@ function editPago(sid,mes,yr){
   if(!p)return;
   // Guardar el modal actual y cerrar para abrir el de edición
   ui.modal=null; // cerrar modal alumno si estaba abierto
-  ui.pagoMod={sid:sid,cantidad:p.cantidad,nota:p.nota||'',metodo:p.metodo||'Transferencia',fechaPago:p.fechaPago||'',editing:true};
+  // Si no tiene fechaPago, buscar en historial
+  var fp = p.fechaPago || '';
+  if(!fp){
+    var s = sts.find(function(x){return x.id===sid;});
+    if(s && s.history){
+      var ph = s.history.find(function(h){
+        return h.type==='pago' && h.text && h.text.indexOf(MONTHS[mes])!==-1 && h.text.indexOf(String(yr))!==-1;
+      });
+      if(ph && ph.date) fp = ph.date;
+    }
+  }
+  ui.pagoMod={sid:sid,cantidad:p.cantidad,nota:p.nota||'',metodo:p.metodo||'Transferencia',fechaPago:fp,editing:true};
   ui.curM=mes;ui.curY=yr;
   renderM();
 }
@@ -2826,7 +2845,15 @@ function savePagoCore(sendToMiGestor){
   if(!qty&&isRC){alert('Introduce un importe');return;}
   var sn=snapData();
   var ex=getPago(pm.sid,ui.curM,ui.curY);
-  var fp=pm.fechaPago||new Date().toISOString().slice(0,10);
+  var fp=pm.fechaPago||'';
+  if(!fp){
+    var sh=sts.find(function(x){return x.id===pm.sid;});
+    if(sh&&sh.history){
+      var phe=sh.history.find(function(h){return h.type==='pago'&&h.text&&h.text.indexOf(MONTHS[ui.curM])!==-1&&h.text.indexOf(String(ui.curY))!==-1;});
+      if(phe&&phe.date) fp=phe.date;
+    }
+  }
+  if(!fp) fp=new Date().toISOString().slice(0,10);
   if(ex){ex.cantidad=qty;ex.nota=pm.nota;ex.metodo=pm.metodo||'Transferencia';ex.fechaPago=fp;}
   else{pagos.push({sid:pm.sid,mes:ui.curM,yr:ui.curY,cantidad:qty,nota:pm.nota,metodo:pm.metodo||'Transferencia',fechaPago:fp});}
   addH(pm.sid,'pago','Pago de '+qty+'€ — '+MONTHS[ui.curM]+' '+ui.curY+(pm.nota?' ('+pm.nota+')':''));
@@ -2891,7 +2918,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.29</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.31</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
