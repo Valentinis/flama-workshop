@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.18</title>
+<title>Flama Workshop v1.4.19</title>
 <style>
 :root{
   --logo-filter: none;
@@ -482,6 +482,37 @@ return false;
 var FB_KEY = 'AIzaSyDKGmdOZ4kaflBH_KDuiAbROsygSxDOC0c';
 var FB_PROJECT = 'flama-workshop';
 var FB_URL = 'https://firestore.googleapis.com/v1/projects/'+FB_PROJECT+'/databases/(default)/documents/data/main';
+// ── INTEGRACIÓN CON MIGESTOR ──
+var MIGESTOR_PAYMENTS_URL = 'https://firestore.googleapis.com/v1/projects/'+FB_PROJECT+'/databases/(default)/documents/payments_to_migestor';
+// Toggles persistentes por método de pago (defecto: todos OFF para seguridad)
+var migestorToggles = JSON.parse(localStorage.getItem('migestor_toggles')||'{}');
+function getToggle(metodo){ return !!migestorToggles[metodo]; }
+function setToggle(metodo, val){ migestorToggles[metodo]=!!val; localStorage.setItem('migestor_toggles', JSON.stringify(migestorToggles)); }
+// Push a MiGestor: escribe documento en payments_to_migestor
+function pushPagoToMiGestor(pagoData){
+  if(!currentUser || !currentUser.email){ alert('Inicia sesión primero'); return Promise.reject(new Error('no auth')); }
+  var safeUid = currentUser.email.replace(/[^a-zA-Z0-9]/g,'_');
+  var docId = 'flama_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  var body = { fields: {
+    uid: { stringValue: safeUid },
+    cliente: { stringValue: pagoData.cliente || '' },
+    importe: { doubleValue: pagoData.importe || 0 },
+    fecha: { stringValue: pagoData.fecha || '' },
+    hora: { stringValue: pagoData.hora || '' },
+    metodo: { stringValue: (pagoData.metodo||'').toLowerCase() },
+    concepto: { stringValue: pagoData.concepto || '' },
+    pct_iva: { integerValue: '21' },
+    source: { stringValue: 'flama' },
+    flamaId: { stringValue: docId },
+    processed: { booleanValue: false },
+    createdAt: { timestampValue: new Date().toISOString() }
+  } };
+  return fetch(MIGESTOR_PAYMENTS_URL+'?documentId='+docId+'&key='+FB_KEY, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(r){ if(!r.ok) throw new Error('Error '+r.status); return r.json(); });
+}
+
 
 var fbSaveTimer = null;
 
@@ -654,7 +685,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.18';
+  ver.textContent='v1.4.19';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1773,7 +1804,16 @@ return '<div class="moverlay" onclick="closePM()"><div class="msheet" onclick="e
 +(sug&&sug!==s.cuota&&!isRC?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')
 +'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(m){  var sel=(ui.pagoMod.metodo||'Transferencia')===m;  return '<button onclick="ui.pagoMod.metodo=\''+m+'\';renderM()" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+m+'</button>';}).join('')+'</div>'+'<span class="flbl">Nota</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:0;">'
 +histHtml
-+'<div class="btn-row"><button class="btn" onclick="closePM()">Cancelar</button><button class="btn btn-p" onclick="savePago()">Guardar</button></div>'
++(function(){
+  var m = ui.pagoMod.metodo || 'Transferencia';
+  var canSend = getToggle(m);
+  var btns = '<button class="btn" onclick="closePM()">Cancelar</button>';
+  btns += '<button class="btn btn-p" onclick="savePagoConfirm(false)">Guardar</button>';
+  if(canSend){
+    btns += '<button class="btn btn-p" style="background:#1D9E75;" onclick="savePagoConfirm(true)">Guardar y enviar a MiGestor</button>';
+  }
+  return '<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>';
+})()
 +'</div></div>';
 }
 
@@ -2471,11 +2511,35 @@ function openSettings(){
       +'</div>';
     h+='<div style="border-top:1px solid #2a2a2a;margin-bottom:12px;"></div>';
   }
+  // ── INTEGRACIÓN MIGESTOR ──
+  if(!isViewer()){
+    h+='<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;margin-top:6px;">Envío automático a MiGestor</div>';
+    h+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Activa los métodos de pago para los que quieres enviar el ticket a MiGestor al guardar.</div>';
+    ['SumUp','Transferencia','Bizum','Efectivo','Mixto'].forEach(function(m){
+      var on = getToggle(m);
+      h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">'
+        +'<span style="font-size:14px;color:var(--text);">'+m+'</span>'
+        +'<button onclick="toggleMiGestorMethod(\''+m+'\')" style="background:'+(on?'#1D9E75':'#333')+';color:#fff;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;min-width:60px;">'+(on?'ON':'OFF')+'</button>'
+        +'</div>';
+    });
+    h+='<div style="border-top:1px solid #2a2a2a;margin:14px 0 12px;"></div>';
+  }
   // Cerrar sesión
   h+='<button onclick="logout()" style="width:100%;padding:10px;border-radius:12px;border:1px solid #333;background:none;color:var(--text2);font-size:14px;cursor:pointer;text-align:left;">Cerrar sesión</button>';
   sc.innerHTML=h;
   document.getElementById('settings-modal').style.display='block';
 }
+function toggleMiGestorMethod(metodo){
+  var current = getToggle(metodo);
+  var nextState = !current;
+  var msg = nextState
+    ? '¿Activar envío automático a MiGestor para pagos con ' + metodo + '?\n\nAparecerá el botón "Guardar y enviar a MiGestor" en el modal de pago.'
+    : '¿Desactivar envío a MiGestor para pagos con ' + metodo + '?\n\nEl botón "Guardar y enviar" se ocultará para este método.';
+  if(!confirm(msg)) return;
+  setToggle(metodo, nextState);
+  openSettings(); // re-render
+}
+
 function closeSettings(){
   document.getElementById('settings-modal').style.display='none';
 }
@@ -2591,7 +2655,35 @@ if(ui.tab==='pagos')el.innerHTML=renderPagos();
 var inp=document.getElementById('pagos-search');
 if(inp){inp.focus();var v=inp.value;inp.value='';inp.value=v;}
 }
-function savePago(){
+function savePagoConfirm(sendToMiGestor){
+  var pm = ui.pagoMod;
+  var s = sts.find(function(x){return x.id===pm.sid;});
+  var qtyEl=document.getElementById('pm-qty');
+  var qty = (qtyEl&&qtyEl.value)?parseInt(qtyEl.value):(pm.cantidad||(s&&s.cuota)||0);
+  var pname = s ? s.name : '?';
+  var metodo = pm.metodo || 'Transferencia';
+  var msg;
+  if(sendToMiGestor){
+    msg = '¿Guardar pago en Flama Y enviar a MiGestor?\n\n' +
+          'Alumno: ' + pname + '\n' +
+          'Importe: ' + qty + '€\n' +
+          'Método: ' + metodo;
+  } else {
+    msg = '¿Guardar pago en Flama?\n\n' +
+          'Alumno: ' + pname + '\n' +
+          'Importe: ' + qty + '€\n' +
+          'Método: ' + metodo;
+  }
+  if(!confirm(msg)) return;
+  // Bloqueo extra de seguridad si toggle OFF
+  if(sendToMiGestor && !getToggle(metodo)){
+    alert('El envío a MiGestor está desactivado para ' + metodo + '. Actívalo en Ajustes.');
+    return;
+  }
+  savePagoCore(sendToMiGestor);
+}
+
+function savePagoCore(sendToMiGestor){
   var pm=ui.pagoMod;
   var qtyEl=document.getElementById('pm-qty');var notaEl=document.getElementById('pm-nota');
   if(qtyEl&&qtyEl.value)pm.cantidad=parseInt(qtyEl.value)||0;
@@ -2613,7 +2705,32 @@ function savePago(){
     // rechargeUnpaid can go negative (prepaid)
   }
   var pname=s?s.name:'';var pqty=qty;
+  var pmetodo = pm.metodo || 'Transferencia';
+  var pnota = pm.nota || '';
   ui.pagoMod=null;save();render();showPagoOk(pname,pqty);
+  // Push a MiGestor si corresponde
+  if(sendToMiGestor && getToggle(pmetodo)){
+    var fechaStr = (new Date()).toISOString().slice(0,10);
+    var horaStr = (new Date()).toTimeString().slice(0,5);
+    var concepto = pnota || ('Clases de cerámica · ' + MONTHS[ui.curM] + ' ' + ui.curY);
+    pushPagoToMiGestor({
+      cliente: pname,
+      importe: pqty,
+      fecha: fechaStr,
+      hora: horaStr,
+      metodo: pmetodo,
+      concepto: concepto
+    }).then(function(){
+      // Pequeño toast visual
+      var t = document.createElement('div');
+      t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1D9E75;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+      t.textContent = '✓ Enviado a MiGestor';
+      document.body.appendChild(t);
+      setTimeout(function(){ t.remove(); }, 2500);
+    }).catch(function(e){
+      alert('Pago guardado en Flama pero falló el envío a MiGestor: ' + e.message);
+    });
+  }
 }
 function chM(d){ui.curM+=d;if(ui.curM>11){ui.curM=0;ui.curY++;}if(ui.curM<0){ui.curM=11;ui.curY--;}ui.pagosQuery='';render();}
 var tabScroll={};
@@ -2636,7 +2753,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.18</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.19</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
