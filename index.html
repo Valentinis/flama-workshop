@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.26</title>
+<title>Flama Workshop v1.4.27</title>
 <style>
 :root{
   --logo-filter: none;
@@ -514,6 +514,46 @@ function pushPagoToMiGestor(pagoData){
   }).then(function(r){ if(!r.ok) throw new Error('Error '+r.status); return r.json(); });
 }
 
+// Sincronizar estados de MiGestor: leer payments_to_migestor y actualizar _migestor en pagos
+function syncMiGestorStatuses(){
+  if(!currentUser||!currentUser.email) return;
+  var uid = currentUser.email.replace(/[^a-zA-Z0-9]/g,'_');
+  fetch(MIGESTOR_PAYMENTS_URL+'?key='+FB_KEY+'&pageSize=200')
+  .then(function(r){ return r.json(); })
+  .then(function(j){
+    if(!j.documents) return;
+    var changed=false;
+    j.documents.forEach(function(doc){
+      var f=doc.fields||{};
+      var docUid=f.uid?f.uid.stringValue:'';
+      if(docUid!==uid) return;
+      var status=f.status?f.status.stringValue:'';
+      var processed=f.processed?f.processed.booleanValue:false;
+      var cliente=(f.cliente?f.cliente.stringValue:'').toLowerCase();
+      var importe=f.importe?f.importe.doubleValue:0;
+      var fecha=f.fecha?f.fecha.stringValue:'';
+      if(!status&&!processed) return;
+      // Buscar el pago correspondiente
+      pagos.forEach(function(p){
+        var s=sts.find(function(x){return x.id===p.sid;});
+        if(!s) return;
+        if(s.name.toLowerCase()!==cliente) return;
+        if(Math.abs(p.cantidad-importe)>0.01) return;
+        // Coincide cliente + importe
+        if(status==='rejected'&&p._migestor!=='rejected'){
+          p._migestor='rejected';
+          changed=true;
+        } else if(status==='approved'&&p._migestor!=='approved_confirmed'){
+          p._migestor='ok';
+          changed=true;
+        }
+      });
+    });
+    if(changed){ save(); render(); }
+  }).catch(function(e){ console.warn('syncMiGestorStatuses error:',e); });
+}
+
+
 // Enviar a MiGestor un pago YA REGISTRADO (desde el historial)
 function sendPagoToMiGestor(sid, mes, yr){
   var p = pagos.find(function(x){ return x.sid===sid && x.mes===mes && x.yr===yr; });
@@ -641,6 +681,7 @@ function loadFromFirebase(callback){
                 localStorage.setItem('migestor_toggles', JSON.stringify(migestorToggles));
               }catch(e){}
             }
+            syncMiGestorStatuses();
             if(fbSts.length>=sts.length){
               sts=fbSts;pagos=fbPagos;ovs=fbOvs;interesados=fbInt;nextId=fbNextId;
             }
@@ -737,7 +778,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.26';
+  ver.textContent='v1.4.27';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1560,6 +1601,7 @@ function migBadgeHtml(p){
   if(st==='ok') return '<span style="display:inline-flex;align-items:center;background:#1D9E75;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✓</span>';
   if(st==='sending') return '<span style="display:inline-flex;align-items:center;background:#666;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;"><span class="mig-spinner" style="display:inline-block;width:7px;height:7px;border:1.5px solid #fff;border-top-color:transparent;border-radius:50%;animation:migspin .8s linear infinite;margin-right:3px;"></span>MiG</span>';
   if(st==='error') return '<span style="display:inline-flex;align-items:center;background:#d63b3b;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG !</span>';
+  if(st==='rejected') return '<span style="display:inline-flex;align-items:center;background:#d63b3b;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✕</span>';
   return '';
 }
 function chipPago(s){
@@ -1856,6 +1898,8 @@ if(allPagos.length){
     var migBtnHtml = '';
     if(p._migestor==='ok'){
       migBtnHtml = '<span style="display:inline-flex;align-items:center;background:#1D9E75;color:#fff;border-radius:8px;font-size:10px;font-weight:700;padding:3px 7px;">MiG ✓</span>';
+    } else if(p._migestor==='rejected'){
+      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✕ ↻</button>';
     } else if(p._migestor==='sending'){
       migBtnHtml = '<span style="display:inline-flex;align-items:center;background:#666;color:#fff;border-radius:8px;font-size:10px;font-weight:700;padding:3px 7px;"><span class="mig-spinner" style="display:inline-block;width:8px;height:8px;border:1.5px solid #fff;border-top-color:transparent;border-radius:50%;animation:migspin .8s linear infinite;margin-right:4px;"></span>MiG</span>';
     } else if(p._migestor==='error'){
@@ -2845,7 +2889,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.26</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.27</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
