@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.27</title>
+<title>Flama Workshop v1.4.28</title>
 <style>
 :root{
   --logo-filter: none;
@@ -778,7 +778,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.27';
+  ver.textContent='v1.4.28';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1656,17 +1656,14 @@ if(rcList.length){
   rcList.forEach(function(s){h+=chipPago(s);});
   h+='</div></div>';
 }
-// Gift section: always show unpaid, only show paid in the month of payment
+// Gift section: mostrar gift cards que tienen pago en este mes O que no tienen pago en ningún mes
 var giftList=sortN(reg.filter(function(s){
-  if(s.studentType!=='gift'||!s.giftActivated)return false;
+  if(s.studentType!=='gift') return false;
   var p=getPago(s.id,m,y);
-  // Show if: no payment ever, OR payment exists in this specific month
-  if(!p){
-    // Check if paid in ANY other month - if yes, hide from current month
-    var paidOther=pagos.some(function(pg){return pg.sid===s.id&&!(pg.mes===m&&pg.yr===y);});
-    return !paidOther; // only show if never paid anywhere
-  }
-  return true; // show in the month where payment exists
+  if(p) return true; // tiene pago en este mes, mostrar
+  // No tiene pago en este mes — mostrar solo si no tiene pago en NINGÚN mes
+  var paidAny=pagos.some(function(pg){return pg.sid===s.id;});
+  return !paidAny;
 }));
 if(giftList.length){
   h+='<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#7a1a9a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">🎁 Gift Card</div><div style="display:flex;flex-wrap:wrap;">';
@@ -1897,7 +1894,7 @@ if(allPagos.length){
     var canSendMig = !p._migestor && getToggle(pMet);
     var migBtnHtml = '';
     if(p._migestor==='ok'){
-      migBtnHtml = '<span style="display:inline-flex;align-items:center;background:#1D9E75;color:#fff;border-radius:8px;font-size:10px;font-weight:700;padding:3px 7px;">MiG ✓</span>';
+      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✓ ↻</button>';
     } else if(p._migestor==='rejected'){
       migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✕ ↻</button>';
     } else if(p._migestor==='sending'){
@@ -1947,7 +1944,9 @@ return '<div class="moverlay" onclick="closePM()"><div class="msheet" onclick="e
 function editPago(sid,mes,yr){
   var p=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr;});
   if(!p)return;
-  ui.pagoMod={sid:sid,cantidad:p.cantidad,nota:p.nota||'',metodo:p.metodo||'Transferencia',fechaPago:p.fechaPago||''};
+  // Guardar el modal actual y cerrar para abrir el de edición
+  ui.modal=null; // cerrar modal alumno si estaba abierto
+  ui.pagoMod={sid:sid,cantidad:p.cantidad,nota:p.nota||'',metodo:p.metodo||'Transferencia',fechaPago:p.fechaPago||'',editing:true};
   ui.curM=mes;ui.curY=yr;
   renderM();
 }
@@ -2889,7 +2888,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.27</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.28</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
