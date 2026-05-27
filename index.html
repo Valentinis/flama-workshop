@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.28</title>
+<title>Flama Workshop v1.4.29</title>
 <style>
 :root{
   --logo-filter: none;
@@ -543,8 +543,8 @@ function syncMiGestorStatuses(){
         if(status==='rejected'&&p._migestor!=='rejected'){
           p._migestor='rejected';
           changed=true;
-        } else if(status==='approved'&&p._migestor!=='approved_confirmed'){
-          p._migestor='ok';
+        } else if(status==='approved'&&p._migestor!=='confirmed'){
+          p._migestor='confirmed';
           changed=true;
         }
       });
@@ -778,7 +778,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.28';
+  ver.textContent='v1.4.29';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1598,7 +1598,8 @@ h+='<div style="position:relative;margin-bottom:14px;"><span style="position:abs
 function migBadgeHtml(p){
   if(!p) return '';
   var st = p._migestor;
-  if(st==='ok') return '<span style="display:inline-flex;align-items:center;background:#1D9E75;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✓</span>';
+  if(st==='confirmed') return '<span style="display:inline-flex;align-items:center;background:#1D9E75;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✓✓</span>';
+  if(st==='ok') return '<span style="display:inline-flex;align-items:center;background:#c07800;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✓</span>';
   if(st==='sending') return '<span style="display:inline-flex;align-items:center;background:#666;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;"><span class="mig-spinner" style="display:inline-block;width:7px;height:7px;border:1.5px solid #fff;border-top-color:transparent;border-radius:50%;animation:migspin .8s linear infinite;margin-right:3px;"></span>MiG</span>';
   if(st==='error') return '<span style="display:inline-flex;align-items:center;background:#d63b3b;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG !</span>';
   if(st==='rejected') return '<span style="display:inline-flex;align-items:center;background:#d63b3b;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✕</span>';
@@ -1893,8 +1894,10 @@ if(allPagos.length){
     var pMet = p.metodo||'Transferencia';
     var canSendMig = !p._migestor && getToggle(pMet);
     var migBtnHtml = '';
-    if(p._migestor==='ok'){
-      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✓ ↻</button>';
+    if(p._migestor==='confirmed'){
+      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✓✓ ↻</button>';
+    } else if(p._migestor==='ok'){
+      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#c07800;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✓ ↻</button>';
     } else if(p._migestor==='rejected'){
       migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✕ ↻</button>';
     } else if(p._migestor==='sending'){
@@ -2888,7 +2891,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.28</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.29</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
