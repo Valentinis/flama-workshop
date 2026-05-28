@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.46</title>
+<title>Flama Workshop v1.4.48</title>
 <style>
 :root{
   --logo-filter: none;
@@ -884,7 +884,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.46';
+  ver.textContent='v1.4.48';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1900,6 +1900,16 @@ function closeCMViewer(){
   if(el)el.remove();
 }
 function openAddToClass(cid,monStr){ui.cm={sid:null,cid:+cid,monStr:monStr,addMode:true};ui.cadd={type:'recuperacion',query:'',selId:null};renderM();}
+function selectMetodo(btn){
+  var mt=btn.getAttribute('data-m');
+  if(!mt||!ui.pagoMod) return;
+  ui.pagoMod.metodo=mt;
+  if(mt==='Mixto'&&!ui.pagoMod.mix){
+    ui.pagoMod.mix=[{m:'SumUp',c:0},{m:'Transferencia',c:0}];
+  }
+  renderM();
+}
+
 function openPM(sid){var ex=getPago(sid,ui.curM,ui.curY);ui.pagoMod={sid:+sid,cantidad:'',nota:'',concepto:ex&&ex.concepto||'',metodo:ex&&ex.metodo||'Transferencia',fechaPago:ex&&ex.fechaPago||'',forceNew:false};renderM();}
 function openUpgrade(sid){openSM(sid);setTimeout(function(){var s=sts.find(function(x){return x.id==sid;});ui.mview='upgrade';ui.upgrF={cid:null,tipo:s?s.tipo:'torno',cuota:100};renderM();},50);}
 function openReincorp(sid){openSM(sid);setTimeout(function(){var s=sts.find(function(x){return x.id==sid;});ui.mview='reincorp';ui.reincF={cid:null,tipo:s?s.tipo:'torno',cuota:100,joinNow:true,joinDate:today()};renderM();},50);}
@@ -2058,7 +2068,7 @@ if(canSendMig){
 }
 
 var newPaySection=''
-+'<div style="background:var(--bg-raised,var(--bg-card));border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid var(--border);">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+'<span style="font-size:13px;font-weight:700;color:var(--text);">'+(ui.pagoMod.forceNew?'➕ Añadir pago extra · '+MONTHS[ui.curM]+' '+ui.curY:ex?'✏️ Editar pago de '+MONTHS[ui.curM]+' '+ui.curY:'➕ Nuevo pago · '+MONTHS[ui.curM]+' '+ui.curY)+'</span>'+(ex&&!ui.pagoMod.forceNew?'<button onclick="ui.pagoMod.forceNew=true;ui.pagoMod.cantidad=0;renderM()" style="font-size:11px;color:#1D9E75;background:none;border:none;cursor:pointer;font-weight:600;">+ Pago extra</button>':'')+'</div>'+rcInfo+(s.rec>0&&!isRC?'<div class="abar aw" style="margin-bottom:8px;">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')+cantidadHtml+(sug&&sug!==s.cuota&&!isRC&&!isMixto?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')+'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(mt){  var sel=metSel===mt;  return '<button onclick="ui.pagoMod.metodo=\''+mt+'\';if(mt===\'Mixto\'&&!ui.pagoMod.mix){ui.pagoMod.mix=[{m:\'SumUp\',c:0},{m:\'Transferencia\',c:0}];}renderM()" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+mt+'</button>';}).join('')+'</div>'+'<span class="flbl">Concepto (para el ticket)</span>'+'<input id="pm-concepto" type="text" placeholder="Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY+'" value="'+(ui.pagoMod.concepto||ex&&ex.concepto||'')+'" oninput="ui.pagoMod.concepto=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Nota (solo en Flama)</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Fecha de pago</span>'+'<input id="pm-fecha" type="date" value="'+(ui.pagoMod.fechaPago||today())+'" oninput="ui.pagoMod.fechaPago=this.value" style="margin-bottom:10px;">'+'<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>'+'</div>';
++'<div style="background:var(--bg-raised,var(--bg-card));border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid var(--border);">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+'<span style="font-size:13px;font-weight:700;color:var(--text);">'+(ui.pagoMod.forceNew?'➕ Añadir pago extra · '+MONTHS[ui.curM]+' '+ui.curY:ex?'✏️ Editar pago de '+MONTHS[ui.curM]+' '+ui.curY:'➕ Nuevo pago · '+MONTHS[ui.curM]+' '+ui.curY)+'</span>'+(ex&&!ui.pagoMod.forceNew?'<button onclick="ui.pagoMod.forceNew=true;ui.pagoMod.cantidad=0;renderM()" style="font-size:11px;color:#1D9E75;background:none;border:none;cursor:pointer;font-weight:600;">+ Pago extra</button>':'')+'</div>'+rcInfo+(s.rec>0&&!isRC?'<div class="abar aw" style="margin-bottom:8px;">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')+cantidadHtml+(sug&&sug!==s.cuota&&!isRC&&!isMixto?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')+'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(mt){  var sel=metSel===mt;  return '<button onclick="selectMetodo(this)" data-m="'+mt+'" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+mt+'</button>';}).join('')+'</div>'+'<span class="flbl">Concepto (para el ticket)</span>'+'<input id="pm-concepto" type="text" placeholder="Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY+'" value="'+(ui.pagoMod.concepto||ex&&ex.concepto||'')+'" oninput="ui.pagoMod.concepto=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Nota (solo en Flama)</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Fecha de pago</span>'+'<input id="pm-fecha" type="date" value="'+(ui.pagoMod.fechaPago||today())+'" oninput="ui.pagoMod.fechaPago=this.value" style="margin-bottom:10px;">'+'<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>'+'</div>';
 
 // ── SECCIÓN INFERIOR: Historial inline editable ──
 var rawPagos=pagos.filter(function(p){return p.sid===s.id;}).sort(function(a,b){return b.yr-a.yr||b.mes-a.mes;});
@@ -2206,7 +2216,7 @@ var max2=nt==='torno'?MAX_T:MAX_M;var ok2=isFlam2||(used<max2);
 content='<div style="margin-bottom:10px;"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">← Volver</button></div>'
 +'<p style="font-size:14px;color:var(--text2);margin-bottom:10px;">Cambiar de <b>'+s.tipo+'</b> a <b>'+nt+'</b>.</p>'
 +(!isFlam2?'<p style="font-size:13px;margin-bottom:12px;color:'+(ok2?'#1D9E75':'#d63b3b')+'">'+(ok2?'Hay hueco ('+used+'/'+max2+')':'Sin hueco ('+used+'/'+max2+')')+'</p>':'')
-+'<div class="btn-row"><button class="btn" onclick="ui.mview=\'actions\';renderM()">Cancelar</button>'
++'<div class="btn-row"><button class="btn" onclick="ui.mview=&apos;actions&apos;;renderM()">Cancelar</button>'
 +(ok2?'<button class="btn btn-p" onclick="doChangeTipo()">Confirmar</button>':'<button class="btn btn-p" style="opacity:0.4;pointer-events:none">Confirmar</button>')
 +'</div>';
 }
@@ -2447,9 +2457,9 @@ var subTxt=isAbs?'Cancelar baja puntual':isGift2?'Devuelve 1 clase a la gift car
   }
 }
 if(!isAbs&&!isAbsM&&!isVisit&&!isGift2&&!isRec2&&!isFlamV2&&!isRechargeV2){
-  rows+='<div class="arow" onclick="doMarcarBaja('+cm.sid+',\''+cm.monStr+'\',' +cm.cid+')"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">No viene esta clase</div><div class="asub">+1 recuperación pendiente</div></div></div>'
-  +'<div class="arow" onclick="doAdelantaClase('+cm.sid+',\''+cm.monStr+'\',' +cm.cid+')"><div class="aico" style="background:#e1f5ee;">+1</div><div><div class="atxt">Adelanta clase futura</div><div class="asub">Acumula crédito ('+Math.abs(s3.rec<0?s3.rec:0)+' acumulado'+(s3.rec<=-2?'s':'')+')</div></div></div>'
-  +(s3.rec>0?'<div class="arow" onclick="doRecAdelanto('+cm.sid+',\''+cm.monStr+'\',' +cm.cid+')"><div class="aico" style="background:#e1f5ee;">−1</div><div><div class="atxt">Recuperar por adelantado</div><div class="asub">Viene y descuenta 1 pendiente ('+s3.rec+' pendientes)</div></div></div>':'')
+  rows+='<div class="arow" onclick="cmAction(this)" data-fn="marcarBaja" data-sid="'+cm.sid+'" data-mon='+cm.monStr+' data-cid="' +cm.cid+'"><div class="aico" style="background:#ffeaea;">✕</div><div><div class="atxt">No viene esta clase</div><div class="asub">+1 recuperación pendiente</div></div></div>'
+  +'<div class="arow" onclick="cmAction(this)" data-fn="adelanta" data-sid="'+cm.sid+'" data-mon='+cm.monStr+' data-cid="' +cm.cid+'"><div class="aico" style="background:#e1f5ee;">+1</div><div><div class="atxt">Adelanta clase futura</div><div class="asub">Acumula crédito ('+Math.abs(s3.rec<0?s3.rec:0)+' acumulado'+(s3.rec<=-2?'s':'')+')</div></div></div>'
+  +(s3.rec>0?'<div class="arow" onclick="cmAction(this)" data-fn="recAdelanto" data-sid="'+cm.sid+'" data-mon='+cm.monStr+' data-cid="' +cm.cid+'"><div class="aico" style="background:#e1f5ee;">−1</div><div><div class="atxt">Recuperar por adelantado</div><div class="asub">Viene y descuenta 1 pendiente ('+s3.rec+' pendientes)</div></div></div>':'')
     +'<div class="arow" onclick="ui.csub=&apos;move&apos;;ui.csel=null;renderM()"><div class="aico" style="background:#e8f0fe;">→</div><div><div class="atxt">Va a otra clase esta semana</div></div></div>';
 }
 
@@ -2803,7 +2813,7 @@ function openSettings(){
       viewers.forEach(function(email){
         h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2a;">'
           +'<span style="font-size:13px;color:var(--text);">'+email+'</span>'
-          +'<button onclick="doRemoveViewer(\''+email+'\')" style="background:#3d1515;color:#ff8080;border:none;border-radius:8px;padding:3px 10px;font-size:11px;cursor:pointer;">Eliminar</button>'
+          +'<button onclick="doRemoveViewer(this.dataset.e)" data-e="'+email+'" style="background:#3d1515;color:#ff8080;border:none;border-radius:8px;padding:3px 10px;font-size:11px;cursor:pointer;">Eliminar</button>'
           +'</div>';
       });
     }else{
@@ -2823,7 +2833,7 @@ function openSettings(){
       var on = getToggle(m);
       h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">'
         +'<span style="font-size:14px;color:var(--text);">'+m+'</span>'
-        +'<button onclick="toggleMiGestorMethod(\''+m+'\')" style="background:'+(on?'#1D9E75':'#333')+';color:#fff;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;min-width:60px;">'+(on?'ON':'OFF')+'</button>'
+        +'<button onclick="toggleMiGestorMethod(this.dataset.m)" data-m="'+m+'" style="background:'+(on?'#1D9E75':'#333')+';color:#fff;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;min-width:60px;">'+(on?'ON':'OFF')+'</button>'
         +'</div>';
     });
     h+='<div style="border-top:1px solid #2a2a2a;margin:14px 0 12px;"></div>';
@@ -2864,6 +2874,22 @@ function doRemoveViewer(email){
   showU('Acceso eliminado: '+email);
 }
 function doAdelantaClase(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});s.rec=(s.rec||0)-1;addH(sid,'recuperacion','Clase adelantada — '+c.day+' '+c.start+' (semana '+monStr+') — crédito: '+Math.abs(s.rec));save();closeCM();showU('Adelantada — @'+s.handle,sn);}
+
+// Wrappers para onclick con strings (evita comillas anidadas en iOS Safari)
+function cmAction(btn){
+  var fn=btn.getAttribute('data-fn');
+  var sid=parseInt(btn.getAttribute('data-sid'));
+  var mon=btn.getAttribute('data-mon');
+  var cid=parseInt(btn.getAttribute('data-cid'));
+  var extra=btn.getAttribute('data-extra');
+  if(fn==='cancelOv') doCancelOv(sid,mon,extra==='true',cid);
+  else if(fn==='marcarBaja') doMarcarBaja(sid,mon,cid);
+  else if(fn==='adelanta') doAdelantaClase(sid,mon,cid);
+  else if(fn==='recAdelanto') doRecAdelanto(sid,mon,cid);
+  else if(fn==='cancelVisit') doCancelOvVisit(sid,mon,cid);
+  else if(fn==='cancelCambio') doCancelCambioYBaja(sid,mon,cid);
+  else if(fn==='moverSemana') doMoverSemana(sid,mon);
+}
 function doMarcarBaja(sid,monStr,cid){sid=+sid;cid=+cid;var sn=snapData();var s=sts.find(function(x){return x.id==sid;});var c=CLS.find(function(x){return x.id===cid;});if(s.rec<0){s.rec++;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+') — consume crédito adelantado');}else{s.rec=(s.rec||0)+1;addH(sid,'baja','Baja puntual — '+c.day+' '+c.start+' (semana '+monStr+')');}ovs=ovs.filter(function(o){return!(o.sid===sid&&o.week===monStr&&o.fromCid===cid);});ovs.push({sid:sid,week:monStr,fromCid:cid,toCid:-1,type:'baja'});save();closeCM();showU('Baja — @'+s.handle,sn);}
 function openReactivar(cid,tipo){
   ui.mview='reactivar';
@@ -3154,7 +3180,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.46</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.48</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
