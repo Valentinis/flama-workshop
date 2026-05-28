@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.42</title>
+<title>Flama Workshop v1.4.45</title>
 <style>
 :root{
   --logo-filter: none;
@@ -101,7 +101,7 @@ textarea{resize:none;height:70px;}
 .btn-green{background:#0a6e50;color:#fff;border-color:#0a6e50;}
 .btn-block{width:100%;padding:12px;text-align:center;}
 .moverlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;justify-content:center;z-index:100;}
-.msheet{background:var(--modal);border-radius:20px 20px 0 0;padding:20px 20px 0 20px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;display:flex;flex-direction:column;}
+.msheet{background:var(--modal);border-radius:20px 20px 0 0;padding:20px 20px 0 20px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;display:flex;flex-direction:column;transition:transform .2s ease;touch-action:pan-y;}
 .mhandle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
 .mname{font-size:20px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text);}
 .mhandle2{font-size:13px;color:var(--text2);font-family:monospace;margin-bottom:3px;}
@@ -514,6 +514,49 @@ function pushPagoToMiGestor(pagoData){
   }).then(function(r){ if(!r.ok) throw new Error('Error '+r.status); return r.json(); });
 }
 
+// Actualizar un pago pendiente en MiGestor (aún no aprobado)
+function updatePendingInMiGestor(flamaDocId, newData){
+  var url=MIGESTOR_PAYMENTS_URL+'/'+flamaDocId+'?key='+FB_KEY;
+  var fields={};
+  if(newData.importe!==undefined) fields.importe={doubleValue:newData.importe};
+  if(newData.metodo) fields.metodo={stringValue:newData.metodo.toLowerCase()};
+  if(newData.fecha) fields.fecha={stringValue:newData.fecha};
+  if(newData.concepto) fields.concepto={stringValue:newData.concepto};
+  if(newData.nota!==undefined) fields.nota={stringValue:newData.nota};
+  // Construir updateMask
+  var mask=Object.keys(fields).map(function(k){return 'updateMask.fieldPaths='+k;}).join('&');
+  return fetch(url+'&'+mask,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({fields:fields})
+  }).then(function(r){if(!r.ok)throw new Error('Error '+r.status);return r.json();});
+}
+
+// Enviar solicitud de edición de ticket ya confirmado
+function pushEditRequestToMiGestor(flamaDocId, newData, originalTicketId){
+  if(!currentUser||!currentUser.email) return Promise.reject(new Error('no auth'));
+  var safeUid=currentUser.email.replace(/[^a-zA-Z0-9]/g,'_');
+  var docId='edit_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  var body={fields:{
+    uid:{stringValue:safeUid},
+    type:{stringValue:'edit'},
+    originalTicketId:{stringValue:originalTicketId||''},
+    originalFlamaDocId:{stringValue:flamaDocId||''},
+    importe:{doubleValue:newData.importe||0},
+    metodo:{stringValue:(newData.metodo||'').toLowerCase()},
+    fecha:{stringValue:newData.fecha||''},
+    concepto:{stringValue:newData.concepto||''},
+    nota:{stringValue:newData.nota||''},
+    cliente:{stringValue:newData.cliente||''},
+    processed:{booleanValue:false},
+    createdAt:{timestampValue:new Date().toISOString()}
+  }};
+  return fetch(MIGESTOR_PAYMENTS_URL+'?documentId='+docId+'&key='+FB_KEY,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  }).then(function(r){if(!r.ok)throw new Error('Error '+r.status);return r.json();});
+}
+
 // Sincronizar estados de MiGestor: leer payments_to_migestor y actualizar _migestor en pagos
 function syncMiGestorStatuses(){
   if(!currentUser||!currentUser.email) return;
@@ -567,6 +610,9 @@ function syncMiGestorStatuses(){
           changed=true;
         } else if(status==='approved'&&p._migestor!=='confirmed'){
           p._migestor='confirmed';
+          // Guardar el ticket ID si viene en el documento
+          var ticketId=f.ticketId?f.ticketId.stringValue:'';
+          if(ticketId) p._migestorTicketId=ticketId;
           changed=true;
         }
       });
@@ -838,7 +884,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.42';
+  ver.textContent='v1.4.45';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1663,6 +1709,7 @@ function migBadgeHtml(p){
   if(st==='sending') return '<span style="display:inline-flex;align-items:center;background:#666;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;"><span class="mig-spinner" style="display:inline-block;width:7px;height:7px;border:1.5px solid #fff;border-top-color:transparent;border-radius:50%;animation:migspin .8s linear infinite;margin-right:3px;"></span>MiG</span>';
   if(st==='error') return '<span style="display:inline-flex;align-items:center;background:#d63b3b;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG !</span>';
   if(st==='rejected') return '<span style="display:inline-flex;align-items:center;background:#d63b3b;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✕</span>';
+  if(st==='edit_pending') return '<span style="display:inline-flex;align-items:center;background:#8B5CF6;color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:1px 4px;margin-left:3px;line-height:1.2;">MiG ✏️</span>';
   return '';
 }
 function chipPago(s){
@@ -2883,24 +2930,46 @@ function savePagoConfirm(sendToMiGestor){
   var pm = ui.pagoMod;
   var s = sts.find(function(x){return x.id===pm.sid;});
   var qtyEl=document.getElementById('pm-qty');
-  var qty = (qtyEl&&qtyEl.value)?parseInt(qtyEl.value):(pm.cantidad||(s&&s.cuota)||0);
+  var notaEl=document.getElementById('pm-nota');
+  var fechaEl=document.getElementById('pm-fecha');
+  var conceptoEl=document.getElementById('pm-concepto');
+  var qty=(qtyEl&&qtyEl.value)?parseFloat(qtyEl.value):(pm.cantidad||(s&&s.cuota)||0);
+  var nota=notaEl?notaEl.value:(pm.nota||'');
+  var fecha=fechaEl?fechaEl.value:(pm.fechaPago||'');
+  var concepto=conceptoEl?conceptoEl.value:(pm.concepto||'');
   var pname = s ? s.name : '?';
   var metodo = pm.metodo || 'Transferencia';
+  // Ver si estamos editando un pago existente
+  var ex = getPago(pm.sid, ui.curM, ui.curY);
+  var isEditing = !!(ex && !pm.forceNew);
   var msg;
-  if(sendToMiGestor){
-    msg = '¿Guardar pago en Flama Y enviar a MiGestor?\n\n' +
-          'Alumno: ' + pname + '\n' +
-          'Importe: ' + qty + '€\n' +
-          'Método: ' + metodo;
+  if(isEditing){
+    // Mostrar qué ha cambiado
+    var cambios = [];
+    if(ex.cantidad !== qty) cambios.push('Importe: ' + ex.cantidad + '€ → ' + qty + '€');
+    if((ex.metodo||'Transferencia') !== metodo) cambios.push('Método: ' + (ex.metodo||'Transferencia') + ' → ' + metodo);
+    if((ex.nota||'') !== nota) cambios.push('Nota: "' + (ex.nota||'') + '" → "' + nota + '"');
+    if((ex.fechaPago||'') !== fecha && fecha) cambios.push('Fecha: ' + (ex.fechaPago||'—') + ' → ' + fecha);
+    if((ex.concepto||'') !== concepto && concepto) cambios.push('Concepto: "' + (ex.concepto||'—') + '" → "' + concepto + '"');
+    if(cambios.length===0){
+      msg = '¿Guardar pago de ' + pname + '?\n\n(Sin cambios detectados)';
+    } else {
+      msg = '¿Guardar cambios en el pago de ' + pname + ' · ' + MONTHS[ui.curM] + ' ' + ui.curY + '?\n\n'
+          + cambios.join('\n');
+    }
+    if(sendToMiGestor) msg += '\n\n→ Se enviará también a MiGestor';
   } else {
-    msg = '¿Guardar pago en Flama?\n\n' +
-          'Alumno: ' + pname + '\n' +
-          'Importe: ' + qty + '€\n' +
-          'Método: ' + metodo;
+    var action = sendToMiGestor ? '¿Añadir pago y enviar a MiGestor?' : '¿Añadir pago en Flama?';
+    msg = action + '\n\n'
+        + 'Alumno: ' + pname + '\n'
+        + 'Importe: ' + qty + '€\n'
+        + 'Método: ' + metodo + '\n'
+        + 'Fecha: ' + (fecha||'hoy') + '\n'
+        + (concepto?'Concepto: ' + concepto:'');
   }
   if(!confirm(msg)) return;
-  // Bloqueo extra de seguridad si toggle OFF
-  if(sendToMiGestor && !getToggle(metodo)){
+  // Bloqueo extra si toggle OFF
+  if(sendToMiGestor && metodo!=='Mixto' && !getToggle(metodo)){
     alert('El envío a MiGestor está desactivado para ' + metodo + '. Actívalo en Ajustes.');
     return;
   }
@@ -2947,9 +3016,28 @@ function savePagoCore(sendToMiGestor){
     });
   } else {
     if(ex&&!pm.forceNew){
+      var prevFlamaDocId=ex._flamaDocId;
+      var prevMigestor=ex._migestor;
+      var prevTicketId=ex._migestorTicketId; // si fue aprobado, guarda el num_factura
       ex.cantidad=qty;ex.nota=pm.nota;ex.concepto=conceptoFinal;ex.metodo=pm.metodo||'Transferencia';ex.fechaPago=fp;
-      // Limpiar estado MiGestor heredado — el pago editado es nuevo a efectos de envío
+      // Limpiar estado MiGestor — se actualizará con la nueva edición
       delete ex._migestor; delete ex._flamaDocId;
+      // Si había un _flamaDocId, enviar edición a MiGestor
+      if(prevFlamaDocId){
+        var s2=sts.find(function(x){return x.id===pm.sid;});
+        var editData={importe:qty,metodo:pm.metodo||'Transferencia',fecha:fp,concepto:conceptoFinal,nota:pm.nota,cliente:s2?s2.name:''};
+        if(prevMigestor==='confirmed'){
+          // Ticket ya aprobado → crear solicitud de edición
+          pushEditRequestToMiGestor(prevFlamaDocId, editData, prevTicketId||'')
+          .then(function(){ ex._migestor='edit_pending'; save(); render(); })
+          .catch(function(e){ console.warn('Error enviando edición:',e); });
+        } else {
+          // Ticket pendiente → actualizar directamente
+          updatePendingInMiGestor(prevFlamaDocId, editData)
+          .then(function(){ ex._flamaDocId=prevFlamaDocId; ex._migestor='ok'; save(); render(); })
+          .catch(function(e){ console.warn('Error actualizando pendiente:',e); });
+        }
+      }
     }
     else{pagos.push({sid:pm.sid,mes:ui.curM,yr:ui.curY,cantidad:qty,nota:pm.nota,concepto:conceptoFinal,metodo:pm.metodo||'Transferencia',fechaPago:fp});}
   }
@@ -3033,7 +3121,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.42</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.45</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
@@ -3248,6 +3336,59 @@ if(!isLoggedIn()){
 }
 // Set sticky bar top offset based on actual header height
 (function(){var h=document.querySelector('.header');if(h)document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px');})();
+
+// ── SWIPE TO CLOSE MODAL ──
+(function(){
+  var startY=0, startScrollTop=0, sheet=null, closeFunc=null, dragging=false;
+
+  function getCloseFunc(){
+    if(ui.pagoMod) return closePM;
+    if(ui.modal!==null) return closeSM;
+    if(ui.cm) return closeCM;
+    if(ui.statsModal) return function(){ ui.statsModal=false; renderM(); };
+    if(ui.interesadoModal) return function(){ ui.interesadoModal=null; renderM(); };
+    return null;
+  }
+
+  document.addEventListener('touchstart', function(e){
+    var s=document.querySelector('.msheet');
+    if(!s) return;
+    if(!e.target.closest('.msheet')) return;
+    startScrollTop=s.scrollTop;
+    if(startScrollTop>2) return; // solo si estamos en el top
+    startY=e.touches[0].clientY;
+    sheet=s;
+    closeFunc=getCloseFunc();
+    dragging=false;
+  },{passive:true});
+
+  document.addEventListener('touchmove', function(e){
+    if(!sheet||!closeFunc) return;
+    if(sheet.scrollTop>2){ sheet=null; return; } // se scrolleó, cancelar
+    var dy=e.touches[0].clientY-startY;
+    if(dy<10) return;
+    dragging=true;
+    sheet.style.transition='none';
+    sheet.style.transform='translateY('+Math.min(dy,300)+'px)';
+  },{passive:true});
+
+  document.addEventListener('touchend', function(e){
+    if(!sheet||!dragging){ sheet=null; dragging=false; return; }
+    var dy=e.changedTouches[0].clientY-startY;
+    if(dy>100){
+      // Cerrar con animación
+      sheet.style.transition='transform .25s ease';
+      sheet.style.transform='translateY(100%)';
+      setTimeout(function(){ if(closeFunc) closeFunc(); sheet=null; dragging=false; }, 220);
+    } else {
+      // Snap back
+      sheet.style.transition='transform .2s ease';
+      sheet.style.transform='translateY(0)';
+      setTimeout(function(){ sheet.style.transition=''; sheet.style.transform=''; },220);
+      sheet=null; dragging=false;
+    }
+  },{passive:true});
+})();
 </script>
 
 </body>
