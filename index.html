@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.37</title>
+<title>Flama Workshop v1.4.40</title>
 <style>
 :root{
   --logo-filter: none;
@@ -541,13 +541,22 @@ function syncMiGestorStatuses(){
         // Prioridad 1: comparar por flamaDocId exacto (más fiable)
         var matchById = p._flamaDocId && p._flamaDocId === docId;
         if(!matchById){
-          // Prioridad 2: comparar por cliente + importe + año
+          // Prioridad 2: cliente + importe + fecha exacta + método
           var s=sts.find(function(x){return x.id===p.sid;});
           if(!s) return;
+          // Nombre exacto (case insensitive)
           if(s.name.toLowerCase()!==cliente) return;
+          // Importe exacto
           if(Math.abs(p.cantidad-importe)>0.01) return;
+          // Año exacto
           if(fechaYr>0 && p.yr !== fechaYr) return;
-          if(fechaMes>=0 && Math.abs(p.mes - fechaMes) > 1) return;
+          // Mes exacto
+          if(fechaMes>=0 && p.mes !== fechaMes) return;
+          // Fecha exacta del pago si está disponible
+          if(fecha && p.fechaPago && p.fechaPago !== fecha) return;
+          // Método de pago si coincide (solo rechazar si ambos tienen método y son distintos)
+          var docMetodo=(f.metodo?f.metodo.stringValue:'').toLowerCase();
+          if(docMetodo && p.metodo && p.metodo.toLowerCase()!==docMetodo) return;
         }
         // Coincide — actualizar estado
         if(status==='rejected'&&p._migestor!=='rejected'){
@@ -816,7 +825,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.37';
+  ver.textContent='v1.4.40';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1920,115 +1929,85 @@ return '<div class="moverlay" onclick="ui.confirm=null;renderM()"><div class="cs
 
 function renderPagoM(){
 var s=sts.find(function(x){return x.id===ui.pagoMod.sid;});if(!s)return '';
-var ex=getPago(s.id,ui.curM,ui.curY);var c=CLS.find(function(x){return x.id===s.classId;});
+var ex=getPago(s.id,ui.curM,ui.curY);
+var c=CLS.find(function(x){return x.id===s.classId;});
 var isRC=s.studentType==='recharge';
-var rem=s.classId?remClasses(s.classId):0;var sug=rem*PPC;
 var isGift=s.studentType==='gift';
+var rem=s.classId?remClasses(s.classId):0;var sug=rem*PPC;
 var subLine=isRC?'Recharge · '+(s.rechargeUnpaid>0?s.rechargeUnpaid+' clases por pagar':'al día'):isGift?'Gift card · '+s.giftClassesLeft+' clase'+(s.giftClassesLeft!==1?'s':''):(c?c.day+' '+c.start:'—')+' · '+s.cuota+'€/mes habitual';
 var rcInfo=isRC?('<div class="abar ag" style="margin-bottom:10px;">Clases realizadas: <b>'+(s.rechargeTotal||0)+'</b> · Por pagar: <b>'+(s.rechargeUnpaid||0)+'</b>'+(s.rechargeUnpaid<0?' · <span style="color:#1D9E75;">'+Math.abs(s.rechargeUnpaid)+' pagadas por adelantado</span>':'')+'</div>'):'';
-var defaultAmt=isRC?(s.rechargeUnpaid>0?s.rechargeUnpaid*25:100):isGift?(ex?ex.cantidad:(s.cuota||s.giftClassesLeft*25||100)):(ex?ex.cantidad:s.cuota);
+var defaultAmt=isRC?(s.rechargeUnpaid>0?s.rechargeUnpaid*25:100):isGift?(ex?ex.cantidad:(s.cuota||s.giftClassesLeft*25||100)):(s.cuota||100);
 
-// All payments for this student
-// Agrupar pagos mixtos del mismo mes como una entrada con subentradas
+// ── SECCIÓN SUPERIOR: Nuevo pago ──
+var metSel=ui.pagoMod.metodo||'Transferencia';
+var isMixto=metSel==='Mixto';
+var mix=ui.pagoMod.mix||[{m:'SumUp',c:0},{m:'Transferencia',c:0}];
+if(isMixto) ui.pagoMod.mix=mix;
+
+var cantidadHtml;
+if(isMixto){
+  var metOpts=['SumUp','Transferencia','Bizum','Efectivo'];
+  var mixTotal=mix.reduce(function(a,b){return a+(b.c||0);},0);
+  cantidadHtml=mix.map(function(sub,i){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">'      +'<select onchange="ui.pagoMod.mix['+i+'].m=this.value" style="flex:0 0 130px;background:var(--bg-input,var(--bg-card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:13px;">'      +metOpts.map(function(o){return '<option value="'+o+'"'+(sub.m===o?' selected':'')+'>'+o+'</option>';}).join('')      +'</select>'      +'<input type="number" placeholder="0" value="'+(sub.c||'')+'" oninput="ui.pagoMod.mix['+i+'].c=parseFloat(this.value)||0;var t=ui.pagoMod.mix.reduce(function(a,b){return a+(b.c||0);},0);var el=document.getElementById(\'mix-total\');if(el)el.textContent=t;" style="flex:1;background:var(--bg-input,var(--bg-card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:15px;font-weight:700;">'      +'<span style="font-size:13px;color:var(--text2);">€</span>'      +'</div>';
+  }).join('')+'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Total: <b id="mix-total">'+mixTotal+'</b>€</div>';
+} else {
+  cantidadHtml='<input id="pm-qty" type="number" placeholder="'+defaultAmt+'" value="'+(ui.pagoMod.cantidad||'')+'" oninput="ui.pagoMod.cantidad=parseFloat(this.value)||0" style="margin-bottom:6px;">';
+}
+
+var canSendMig=isMixto?mix.some(function(sub){return getToggle(sub.m);}):getToggle(metSel);
+var btns='<button class="btn" onclick="closePM()">Cancelar</button>';
+btns+='<button class="btn btn-p" onclick="savePagoConfirm(false)">Guardar</button>';
+if(canSendMig){
+  btns+='<button class="btn btn-p" style="background:#1D9E75;" onclick="savePagoConfirm(true)">Guardar y enviar a MiGestor</button>';
+}
+
+var newPaySection=''
++'<div style="background:var(--bg-raised,var(--bg-card));border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid var(--border);">'+'<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">'+(ex?'✏️ Editar pago de '+MONTHS[ui.curM]+' '+ui.curY:'➕ Nuevo pago · '+MONTHS[ui.curM]+' '+ui.curY)+'</div>'+rcInfo+(s.rec>0&&!isRC?'<div class="abar aw" style="margin-bottom:8px;">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')+cantidadHtml+(sug&&sug!==s.cuota&&!isRC&&!isMixto?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')+'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(mt){  var sel=metSel===mt;  return '<button onclick="ui.pagoMod.metodo=\''+mt+'\';if(mt===\'Mixto\'&&!ui.pagoMod.mix){ui.pagoMod.mix=[{m:\'SumUp\',c:0},{m:\'Transferencia\',c:0}];}renderM()" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+mt+'</button>';}).join('')+'</div>'+'<span class="flbl">Concepto (para el ticket)</span>'+'<input id="pm-concepto" type="text" placeholder="Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY+'" value="'+(ui.pagoMod.concepto||ex&&ex.concepto||'')+'" oninput="ui.pagoMod.concepto=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Nota (solo en Flama)</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Fecha de pago</span>'+'<input id="pm-fecha" type="date" value="'+(ui.pagoMod.fechaPago||today())+'" oninput="ui.pagoMod.fechaPago=this.value" style="margin-bottom:10px;">'+'<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>'+'</div>';
+
+// ── SECCIÓN INFERIOR: Historial inline editable ──
 var rawPagos=pagos.filter(function(p){return p.sid===s.id;}).sort(function(a,b){return b.yr-a.yr||b.mes-a.mes;});
-// Construir lista: pagos normales + grupos mixtos
 var allPagos=[];var mixGroups={};
 rawPagos.forEach(function(p){
-  if(p.mixIdx!==undefined){
-    var key=p.mes+'_'+p.yr;
-    if(!mixGroups[key]) mixGroups[key]=[];
-    mixGroups[key].push(p);
-  } else {
-    allPagos.push(p);
-  }
+  if(p.mixIdx!==undefined){ var key=p.mes+'_'+p.yr; if(!mixGroups[key])mixGroups[key]=[]; mixGroups[key].push(p); }
+  else allPagos.push(p);
 });
-// Añadir grupos mixtos como entradas especiales
 Object.keys(mixGroups).forEach(function(key){
   var subs=mixGroups[key];
-  // Insertar en posición correcta por mes/año
   allPagos.push({_mixGroup:true,subs:subs,mes:subs[0].mes,yr:subs[0].yr,sid:s.id});
 });
 allPagos.sort(function(a,b){return b.yr-a.yr||b.mes-a.mes;});
+
 var histHtml='';
 if(allPagos.length){
-  histHtml='<span class="flbl" style="margin-top:12px;">Historial de pagos</span>';
+  histHtml='<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Historial</div>';
   histHtml+=allPagos.map(function(p){
     var isCur=p.mes===ui.curM&&p.yr===ui.curY;
-    var pMet = p.metodo||'Transferencia';
-    var canSendMig = !p._migestor && getToggle(pMet);
-    var migBtnHtml = '';
-    if(p._migestor==='confirmed'){
-      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✓✓ ↻</button>';
-    } else if(p._migestor==='ok'){
-      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#c07800;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✓ ↻</button>';
-    } else if(p._migestor==='rejected'){
-      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ✕ ↻</button>';
-    } else if(p._migestor==='sending'){
-      migBtnHtml = '<span style="display:inline-flex;align-items:center;background:#666;color:#fff;border-radius:8px;font-size:10px;font-weight:700;padding:3px 7px;"><span class="mig-spinner" style="display:inline-block;width:8px;height:8px;border:1.5px solid #fff;border-top-color:transparent;border-radius:50%;animation:migspin .8s linear infinite;margin-right:4px;"></span>MiG</span>';
-    } else if(p._migestor==='error'){
-      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;">MiG ! ↻</button>';
-    } else if(canSendMig){
-      migBtnHtml = '<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">→ MiG</button>';
-    }
-    // Pago mixto: mostrar subentradas
     if(p._mixGroup){
       var totalMix=p.subs.reduce(function(a,b){return a+(b.cantidad||0);},0);
-      var isCurMix=p.mes===ui.curM&&p.yr===ui.curY;
-      return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'        +'<span style="font-size:13px;font-weight:600;">'+(isCurMix?'<b>':'')+MONTHS[p.mes]+' '+p.yr+(isCurMix?'</b>':'')+' <span style="font-size:10px;background:#e8e8e8;border-radius:4px;padding:1px 5px;">Mixto</span></span>'        +'<span style="font-weight:700;font-size:14px;">'+totalMix+'€</span>'        +'</div>'        +p.subs.map(function(sub){          var subMig='';          if(sub._migestor==='confirmed') subMig='<span style="background:#1D9E75;color:#fff;border-radius:6px;font-size:9px;font-weight:700;padding:2px 5px;">MiG ✓✓</span>';          else if(sub._migestor==='ok') subMig='<span style="background:#c07800;color:#fff;border-radius:6px;font-size:9px;font-weight:700;padding:2px 5px;">MiG ✓</span>';          else if(getToggle(sub.metodo)&&!sub._migestor) subMig='<button onclick="sendSubPagoToMiGestor('+s.id+','+sub.mes+','+sub.yr+','+sub.mixIdx+')" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:2px 6px;font-size:9px;font-weight:700;cursor:pointer;">→ MiG</button>';          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0 3px 8px;">'            +'<span style="font-size:11px;color:var(--text2);">'+sub.metodo+'</span>'            +'<div style="display:flex;align-items:center;gap:4px;">'            +'<span style="font-size:12px;font-weight:600;">'+sub.cantidad+'€</span>'            +subMig            +'</div></div>';        }).join('')        +'</div>';    }
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">'
-      +'<div style="flex:1;min-width:0;"><span style="font-size:13px;font-weight:600;">'+(isCur?'<b>':'')+MONTHS[p.mes]+' '+p.yr+(isCur?'</b>':'')+'</span>'
-      +'<div style="font-size:11px;color:var(--text2);margin-top:1px;">'+pMet+(p.nota?' · '+p.nota:'')+'</div></div>'
-      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'
-      +'<span style="font-weight:700;font-size:14px;">'+p.cantidad+'€</span>'
-      +migBtnHtml
-      +'<button onclick="editPago('+s.id+','+p.mes+','+p.yr+')" style="background:#e8f0fe;color:#1a5ca8;border:none;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;">✏️</button>'
-      +'<button onclick="deletePago('+s.id+','+p.mes+','+p.yr+')" style="background:#ffeaea;color:#b03030;border:none;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;">🗑</button>'
-      +'</div></div>';
+      return '<div style="background:var(--bg-raised,var(--bg-card));border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border)'+(isCur?';border-color:#1D9E75':'')+';">'        +'<div style="display:flex;justify-content:space-between;align-items:center;">'        +'<span style="font-size:13px;font-weight:700;">'+(isCur?'<span style="color:#1D9E75;">● </span>':'')+MONTHS[p.mes]+' '+p.yr+' <span style="font-size:10px;background:rgba(0,0,0,0.15);border-radius:4px;padding:1px 5px;">Mixto</span></span>'        +'<div style="display:flex;gap:6px;align-items:center;">'        +'<span style="font-weight:700;font-size:14px;">'+totalMix+'€</span>'        +'<button onclick="deletePago('+s.id+','+p.mes+','+p.yr+')" style="background:#ffeaea;color:#b03030;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">🗑</button>'        +'</div></div>'        +p.subs.map(function(sub){
+          var subMig='';
+          if(sub._migestor==='confirmed') subMig='<span style="background:#1D9E75;color:#fff;border-radius:5px;font-size:9px;font-weight:700;padding:2px 4px;">MiG ✓✓</span>';
+          else if(sub._migestor==='ok') subMig='<span style="background:#c07800;color:#fff;border-radius:5px;font-size:9px;font-weight:700;padding:2px 4px;">MiG ✓</span>';
+          else if(getToggle(sub.metodo)&&!sub._migestor) subMig='<button onclick="sendSubPagoToMiGestor('+s.id+','+sub.mes+','+sub.yr+','+sub.mixIdx+')" style="background:#1D9E75;color:#fff;border:none;border-radius:5px;padding:2px 5px;font-size:9px;font-weight:700;cursor:pointer;">→ MiG</button>';
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0 3px 8px;">'            +'<span style="font-size:11px;color:var(--text2);">'+sub.metodo+'</span>'            +'<div style="display:flex;align-items:center;gap:4px;">'            +'<span style="font-size:12px;font-weight:600;">'+sub.cantidad+'€</span>'            +subMig            +'</div></div>';
+        }).join('')        +'</div>';
+    }
+    var pMet=p.metodo||'Transferencia';
+    var canSendP=!p._migestor&&getToggle(pMet);
+    var migBtnHtml='';
+    if(p._migestor==='confirmed') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✓✓ ↻</button>';
+    else if(p._migestor==='ok') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#c07800;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✓ ↻</button>';
+    else if(p._migestor==='rejected') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✕ ↻</button>';
+    else if(p._migestor==='error') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ! ↻</button>';
+    else if(canSendP) migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">→ MiG</button>';
+    return '<div style="background:var(--bg-raised,var(--bg-card));border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border)'+(isCur?';border-color:#1D9E75':'')+';">'      +'<div style="display:flex;justify-content:space-between;align-items:center;">'      +'<div>'      +'<span style="font-size:13px;font-weight:700;">'+(isCur?'<span style="color:#1D9E75;">● </span>':'')+MONTHS[p.mes]+' '+p.yr+'</span>'      +'<div style="font-size:11px;color:var(--text2);margin-top:1px;">'+pMet+(p.nota?' · '+p.nota:'')+'</div>'      +'</div>'      +'<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end;">'      +'<span style="font-weight:700;font-size:14px;">'+p.cantidad+'€</span>'      +migBtnHtml      +'<button onclick="editPago('+s.id+','+p.mes+','+p.yr+')" style="background:#e8f0fe;color:#1a5ca8;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">✏️</button>'      +'<button onclick="deletePago('+s.id+','+p.mes+','+p.yr+')" style="background:#ffeaea;color:#b03030;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">🗑</button>'      +'</div></div></div>';
   }).join('');
 }
 
-return '<div class="moverlay" onclick="closePM()"><div class="msheet" onclick="event.stopPropagation()">'
-+'<div class="mhandle"></div><div class="mname">'+tIco(s.tipo)+' '+s.name+'</div>'
-+'<div class="mhandle2">@'+s.handle+'</div>'
-+'<div class="msub">'+subLine+'</div>'
-+rcInfo
-+(s.rec>0&&!isRC?'<div class="abar aw">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')
-+'<span class="flbl" style="margin-top:0;">'+MONTHS[ui.curM]+' '+ui.curY+'</span>'
-+(ui.pagoMod.metodo==='Mixto'
-  ?(function(){
-    var mix=ui.pagoMod.mix||[{m:'SumUp',c:0},{m:'Transferencia',c:0}];
-    ui.pagoMod.mix=mix;
-    var metOpts=['SumUp','Transferencia','Bizum','Efectivo'];
-    return mix.map(function(sub,i){
-      return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">'
-        +'<select onchange="ui.pagoMod.mix['+i+'].m=this.value" style="flex:0 0 130px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:13px;">'
-        +metOpts.map(function(o){return '<option value="'+o+'"'+(sub.m===o?' selected':'')+'>'+o+'</option>';}).join('')
-        +'</select>'
-        +'<input type="number" placeholder="0" value="'+(sub.c||'')+'" oninput="ui.pagoMod.mix['+i+'].c=parseFloat(this.value)||0" style="flex:1;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:15px;font-weight:700;">'
-        +'<span style="font-size:13px;color:var(--text2);">€</span>'
-        +'</div>';
-    }).join('')
-    +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Total: <b>'+(mix.reduce(function(a,b){return a+(b.c||0);},0))+'€</b></div>';
-  })()
-  :'<input id="pm-qty" type="number" placeholder="'+defaultAmt+'" value="'+(ui.pagoMod.cantidad||ex&&ex.cantidad||'')+'" oninput="ui.pagoMod.cantidad=parseInt(this.value)||0" style="margin-bottom:6px;">'
-)
-+(sug&&sug!==s.cuota&&!isRC&&ui.pagoMod.metodo!=='Mixto'?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')
-+'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(mt){  var sel=(ui.pagoMod.metodo||'Transferencia')===mt;  return '<button onclick="ui.pagoMod.metodo=\''+mt+'\';if(mt===\'Mixto\'&&!ui.pagoMod.mix){ui.pagoMod.mix=[{m:\'SumUp\',c:0},{m:\'Transferencia\',c:0}];}renderM()" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+mt+'</button>';}).join('')+'</div>'+'<span class="flbl">Concepto (para el ticket)</span>'+'<input id="pm-concepto" type="text" placeholder="Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY+'" value="'+(ui.pagoMod.concepto||ex&&ex.concepto||'')+'" oninput="ui.pagoMod.concepto=this.value" style="margin-bottom:6px;">'
-+'<span class="flbl">Nota (solo en Flama)</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:6px;">'
-+'<span class="flbl">Fecha de pago</span>'+'<input id="pm-fecha" type="date" value="'+(ui.pagoMod.fechaPago||ex&&ex.fechaPago||today())+'" oninput="ui.pagoMod.fechaPago=this.value" style="margin-bottom:0;">'
-+histHtml
-+(function(){
-  var m = ui.pagoMod.metodo || 'Transferencia';
-  var canSend = getToggle(m);
-  var btns = '<button class="btn" onclick="closePM()">Cancelar</button>';
-  btns += '<button class="btn btn-p" onclick="savePagoConfirm(false)">Guardar</button>';
-  if(canSend){
-    btns += '<button class="btn btn-p" style="background:#1D9E75;" onclick="savePagoConfirm(true)">Guardar y enviar a MiGestor</button>';
-  }
-  return '<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>';
-})()
-+'</div></div>';
+return '<div class="moverlay" onclick="closePM()"><div class="msheet" onclick="event.stopPropagation()">'+'<div class="mhandle"></div>'+'<div class="mname">'+tIco(s.tipo)+' '+s.name+'</div>'+'<div class="mhandle2">@'+s.handle+'</div>'+'<div class="msub">'+subLine+'</div>'+newPaySection+(histHtml?'<div style="padding-bottom:20px;">'+histHtml+'</div>':'')+'</div></div>';
 }
+
 
 function editPago(sid,mes,yr){
   var p=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr&&!x.mixIdx;});
@@ -3034,7 +3013,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.37</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.40</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
