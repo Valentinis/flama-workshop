@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.40</title>
+<title>Flama Workshop v1.4.42</title>
 <style>
 :root{
   --logo-filter: none;
@@ -539,7 +539,10 @@ function syncMiGestorStatuses(){
       var fechaYr  = fecha ? parseInt(fecha.slice(0,4))   : -1;
       pagos.forEach(function(p){
         // Prioridad 1: comparar por flamaDocId exacto (más fiable)
+        // Pero verificar que el año y mes también coinciden (evita herencia de IDs de meses anteriores)
         var matchById = p._flamaDocId && p._flamaDocId === docId;
+        if(matchById && fechaYr>0 && p.yr !== fechaYr) matchById=false;
+        if(matchById && fechaMes>=0 && p.mes !== fechaMes) matchById=false;
         if(!matchById){
           // Prioridad 2: cliente + importe + fecha exacta + método
           var s=sts.find(function(x){return x.id===p.sid;});
@@ -574,6 +577,16 @@ function syncMiGestorStatuses(){
 
 
 // Enviar a MiGestor un pago YA REGISTRADO (desde el historial)
+function resetMiGestorStatus(sid, mes, yr){
+  if(!confirm('¿Resetear el estado MiGestor de este pago?\nSe quitará el badge hasta que lo reenvíes.')) return;
+  var p=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr&&!x.mixIdx;});
+  if(!p) p=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr;});
+  if(!p) return;
+  delete p._migestor;
+  delete p._flamaDocId;
+  save(); render();
+}
+
 function sendSubPagoToMiGestor(sid, mes, yr, mixIdx){
   var sub=pagos.find(function(x){return x.sid===sid&&x.mes===mes&&x.yr===yr&&x.mixIdx===mixIdx;});
   if(!sub) return;
@@ -825,7 +838,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.40';
+  ver.textContent='v1.4.42';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1840,7 +1853,7 @@ function closeCMViewer(){
   if(el)el.remove();
 }
 function openAddToClass(cid,monStr){ui.cm={sid:null,cid:+cid,monStr:monStr,addMode:true};ui.cadd={type:'recuperacion',query:'',selId:null};renderM();}
-function openPM(sid){var ex=getPago(sid,ui.curM,ui.curY);ui.pagoMod={sid:+sid,cantidad:'',nota:'',concepto:ex&&ex.concepto||'',metodo:ex&&ex.metodo||'Transferencia',fechaPago:ex&&ex.fechaPago||''};renderM();}
+function openPM(sid){var ex=getPago(sid,ui.curM,ui.curY);ui.pagoMod={sid:+sid,cantidad:'',nota:'',concepto:ex&&ex.concepto||'',metodo:ex&&ex.metodo||'Transferencia',fechaPago:ex&&ex.fechaPago||'',forceNew:false};renderM();}
 function openUpgrade(sid){openSM(sid);setTimeout(function(){var s=sts.find(function(x){return x.id==sid;});ui.mview='upgrade';ui.upgrF={cid:null,tipo:s?s.tipo:'torno',cuota:100};renderM();},50);}
 function openReincorp(sid){openSM(sid);setTimeout(function(){var s=sts.find(function(x){return x.id==sid;});ui.mview='reincorp';ui.reincF={cid:null,tipo:s?s.tipo:'torno',cuota:100,joinNow:true,joinDate:today()};renderM();},50);}
 function showConf(title,body,onOk,danger){ui.confirm={title:title,body:body,onOk:onOk,danger:danger};renderM();}
@@ -1956,14 +1969,16 @@ if(isMixto){
 }
 
 var canSendMig=isMixto?mix.some(function(sub){return getToggle(sub.m);}):getToggle(metSel);
+var isEditing=!!(ex); // si ya existe un pago para este mes, es edición
+var actionLabel=isEditing?'Guardar':'Añadir';
 var btns='<button class="btn" onclick="closePM()">Cancelar</button>';
-btns+='<button class="btn btn-p" onclick="savePagoConfirm(false)">Guardar</button>';
+btns+='<button class="btn btn-p" onclick="savePagoConfirm(false)">'+actionLabel+'</button>';
 if(canSendMig){
-  btns+='<button class="btn btn-p" style="background:#1D9E75;" onclick="savePagoConfirm(true)">Guardar y enviar a MiGestor</button>';
+  btns+='<button class="btn btn-p" style="background:#1D9E75;" onclick="savePagoConfirm(true)">'+actionLabel+' y enviar a MiGestor</button>';
 }
 
 var newPaySection=''
-+'<div style="background:var(--bg-raised,var(--bg-card));border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid var(--border);">'+'<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">'+(ex?'✏️ Editar pago de '+MONTHS[ui.curM]+' '+ui.curY:'➕ Nuevo pago · '+MONTHS[ui.curM]+' '+ui.curY)+'</div>'+rcInfo+(s.rec>0&&!isRC?'<div class="abar aw" style="margin-bottom:8px;">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')+cantidadHtml+(sug&&sug!==s.cuota&&!isRC&&!isMixto?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')+'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(mt){  var sel=metSel===mt;  return '<button onclick="ui.pagoMod.metodo=\''+mt+'\';if(mt===\'Mixto\'&&!ui.pagoMod.mix){ui.pagoMod.mix=[{m:\'SumUp\',c:0},{m:\'Transferencia\',c:0}];}renderM()" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+mt+'</button>';}).join('')+'</div>'+'<span class="flbl">Concepto (para el ticket)</span>'+'<input id="pm-concepto" type="text" placeholder="Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY+'" value="'+(ui.pagoMod.concepto||ex&&ex.concepto||'')+'" oninput="ui.pagoMod.concepto=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Nota (solo en Flama)</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Fecha de pago</span>'+'<input id="pm-fecha" type="date" value="'+(ui.pagoMod.fechaPago||today())+'" oninput="ui.pagoMod.fechaPago=this.value" style="margin-bottom:10px;">'+'<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>'+'</div>';
++'<div style="background:var(--bg-raised,var(--bg-card));border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid var(--border);">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+'<span style="font-size:13px;font-weight:700;color:var(--text);">'+(ui.pagoMod.forceNew?'➕ Añadir pago extra · '+MONTHS[ui.curM]+' '+ui.curY:ex?'✏️ Editar pago de '+MONTHS[ui.curM]+' '+ui.curY:'➕ Nuevo pago · '+MONTHS[ui.curM]+' '+ui.curY)+'</span>'+(ex&&!ui.pagoMod.forceNew?'<button onclick="ui.pagoMod.forceNew=true;ui.pagoMod.cantidad=0;renderM()" style="font-size:11px;color:#1D9E75;background:none;border:none;cursor:pointer;font-weight:600;">+ Pago extra</button>':'')+'</div>'+rcInfo+(s.rec>0&&!isRC?'<div class="abar aw" style="margin-bottom:8px;">⚠ '+s.rec+' recuperación'+(s.rec>1?'es':'')+' pendiente'+(s.rec>1?'s':'')+'. Puedes descontarlas.</div>':'')+cantidadHtml+(sug&&sug!==s.cuota&&!isRC&&!isMixto?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">💡 Sugerido: <b>'+sug+'€</b> ('+rem+'×'+PPC+'€)</div>':'')+'<span class="flbl">Método de pago</span>'+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+['SumUp','Transferencia','Bizum','Efectivo','Mixto'].map(function(mt){  var sel=metSel===mt;  return '<button onclick="ui.pagoMod.metodo=\''+mt+'\';if(mt===\'Mixto\'&&!ui.pagoMod.mix){ui.pagoMod.mix=[{m:\'SumUp\',c:0},{m:\'Transferencia\',c:0}];}renderM()" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(sel?'#1D9E75':'var(--border)')+';background:'+(sel?'#e1f5ee':'transparent')+';color:'+(sel?'#0a6e50':'var(--text)')+';font-size:13px;font-weight:'+(sel?'700':'400')+';cursor:pointer;">'+mt+'</button>';}).join('')+'</div>'+'<span class="flbl">Concepto (para el ticket)</span>'+'<input id="pm-concepto" type="text" placeholder="Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY+'" value="'+(ui.pagoMod.concepto||ex&&ex.concepto||'')+'" oninput="ui.pagoMod.concepto=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Nota (solo en Flama)</span>'+'<input id="pm-nota" type="text" placeholder="opcional" value="'+(ui.pagoMod.nota||ex&&ex.nota||'')+'" oninput="ui.pagoMod.nota=this.value" style="margin-bottom:6px;">'+'<span class="flbl">Fecha de pago</span>'+'<input id="pm-fecha" type="date" value="'+(ui.pagoMod.fechaPago||today())+'" oninput="ui.pagoMod.fechaPago=this.value" style="margin-bottom:10px;">'+'<div class="btn-row" style="flex-wrap:wrap;gap:6px;">'+btns+'</div>'+'</div>';
 
 // ── SECCIÓN INFERIOR: Historial inline editable ──
 var rawPagos=pagos.filter(function(p){return p.sid===s.id;}).sort(function(a,b){return b.yr-a.yr||b.mes-a.mes;});
@@ -1996,7 +2011,7 @@ if(allPagos.length){
     var pMet=p.metodo||'Transferencia';
     var canSendP=!p._migestor&&getToggle(pMet);
     var migBtnHtml='';
-    if(p._migestor==='confirmed') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✓✓ ↻</button>';
+    if(p._migestor==='confirmed') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✓✓ ↻</button><button onclick="resetMiGestorStatus('+s.id+','+p.mes+','+p.yr+')" style="background:rgba(0,0,0,0.2);color:#fff;border:none;border-radius:6px;padding:3px 5px;font-size:9px;cursor:pointer;" title="Resetear estado">✕</button>';
     else if(p._migestor==='ok') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#c07800;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✓ ↻</button>';
     else if(p._migestor==='rejected') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ✕ ↻</button>';
     else if(p._migestor==='error') migBtnHtml='<button onclick="sendPagoToMiGestor('+s.id+','+p.mes+','+p.yr+')" style="background:#d63b3b;color:#fff;border:none;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;cursor:pointer;">MiG ! ↻</button>';
@@ -2923,14 +2938,19 @@ function savePagoCore(sendToMiGestor){
   if(!fp) fp=new Date().toISOString().slice(0,10);
   var conceptoFinal=pm.concepto||('Clases de cerámica · '+MONTHS[ui.curM]+' '+ui.curY);
   if(pm.metodo==='Mixto'&&pm.mix&&pm.mix.length===2){
-    // Borrar pago mixto previo si existe
-    pagos=pagos.filter(function(p){return !(p.sid===pm.sid&&p.mes===ui.curM&&p.yr===ui.curY&&p.mixIdx!==undefined);});
+    if(!pm.forceNew){
+      pagos=pagos.filter(function(p){return !(p.sid===pm.sid&&p.mes===ui.curM&&p.yr===ui.curY&&p.mixIdx!==undefined);});
+    }
     pm.mix.forEach(function(sub,i){
       if(!sub.c||sub.c<=0) return;
       pagos.push({sid:pm.sid,mes:ui.curM,yr:ui.curY,cantidad:sub.c,nota:pm.nota,concepto:conceptoFinal,metodo:sub.m,fechaPago:fp,mixIdx:i});
     });
   } else {
-    if(ex){ex.cantidad=qty;ex.nota=pm.nota;ex.concepto=conceptoFinal;ex.metodo=pm.metodo||'Transferencia';ex.fechaPago=fp;}
+    if(ex&&!pm.forceNew){
+      ex.cantidad=qty;ex.nota=pm.nota;ex.concepto=conceptoFinal;ex.metodo=pm.metodo||'Transferencia';ex.fechaPago=fp;
+      // Limpiar estado MiGestor heredado — el pago editado es nuevo a efectos de envío
+      delete ex._migestor; delete ex._flamaDocId;
+    }
     else{pagos.push({sid:pm.sid,mes:ui.curM,yr:ui.curY,cantidad:qty,nota:pm.nota,concepto:conceptoFinal,metodo:pm.metodo||'Transferencia',fechaPago:fp});}
   }
   addH(pm.sid,'pago','Pago de '+qty+'€ — '+MONTHS[ui.curM]+' '+ui.curY+(pm.nota?' ('+pm.nota+')':''));
@@ -3013,7 +3033,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.40</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.42</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
