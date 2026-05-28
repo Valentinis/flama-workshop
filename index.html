@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.45</title>
+<title>Flama Workshop v1.4.46</title>
 <style>
 :root{
   --logo-filter: none;
@@ -884,7 +884,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.45';
+  ver.textContent='v1.4.46';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1909,27 +1909,58 @@ function showConf(title,body,onOk,danger){ui.confirm={title:title,body:body,onOk
 
 function renderStatsModal(){
 var sm=ui.statsM,sy=ui.statsY;
-// Collect all months that have payments
+
+// Meses con datos
 var months=[];
-var seen={};
-pagos.forEach(function(p){var k=p.mes+'-'+p.yr;if(!seen[k]){seen[k]=true;months.push({m:p.mes,y:p.yr});}});
-// Sort months desc
+var seenM={};
+pagos.forEach(function(p){var k=p.mes+'-'+p.yr;if(!seenM[k]){seenM[k]=true;months.push({m:p.mes,y:p.yr});}});
 months.sort(function(a,b){return (b.yr*12+b.m)-(a.yr*12+a.m);});
-// Stats for selected month
-var reg=sts.filter(function(s){return (s.studentType==='regular'||s.studentType==='flamateur')&&s.status!=='deleted'&&(!s.joinDate||s.joinDate<=today());});
+
+// Helper: total pagado por alumno en un mes (suma todos sus pagos incluyendo mixtos y extras)
+function totalPagadoAlumno(sid,m,y){
+  return pagos.filter(function(p){return p.sid===sid&&p.mes===m&&p.yr===y;})
+    .reduce(function(a,p){return a+(p.cantidad||0);},0);
+}
+
+// Todos los alumnos activos (regular + flamateur + recharge + gift)
+var allActive=sts.filter(function(s){
+  return s.status!=='deleted'&&(
+    s.studentType==='regular'||s.studentType==='flamateur'||
+    s.studentType==='recharge'||s.studentType==='gift'
+  )&&(!s.joinDate||s.joinDate<=today());
+});
+// Solo regulares+flamateurs para cuotas esperadas
+var reg=allActive.filter(function(s){return s.studentType==='regular'||s.studentType==='flamateur';});
+
+// Total cobrado en el mes (sin duplicar mixtos — sumar todos los registros del mes)
 var mPagos=pagos.filter(function(p){return p.mes===sm&&p.yr===sy;});
-var total=mPagos.reduce(function(a,p){return a+p.cantidad;},0);
-var pagados=reg.filter(function(s){var p=getPago(s.id,sm,sy);return p&&p.cantidad>=s.cuota;}).length;
-var parciales=reg.filter(function(s){var p=getPago(s.id,sm,sy);return p&&p.cantidad>0&&p.cantidad<s.cuota;}).length;
-var pendientes=reg.filter(function(s){return!getPago(s.id,sm,sy);}).length;
-var expected=reg.reduce(function(a,s){return a+s.cuota;},0);
+var total=mPagos.reduce(function(a,p){return a+(p.cantidad||0);},0);
+
+// Contadores por estado (basados en total pagado vs cuota)
+var pagados=0,parciales=0,pendientes=0;
+reg.forEach(function(s){
+  var t=totalPagadoAlumno(s.id,sm,sy);
+  if(t===0) pendientes++;
+  else if(t>=s.cuota) pagados++;
+  else parciales++;
+});
+
+var expected=reg.reduce(function(a,s){return a+(s.cuota||0);},0);
 var pct=expected>0?Math.round(total/expected*100):0;
-// Monthly average across all months with data
-var allTotals=[];
-seen={};
-pagos.forEach(function(p){var k=p.mes+'-'+p.yr;if(!seen[k])seen[k]=0;seen[k]+=p.cantidad;});
-Object.values(seen).forEach(function(v){allTotals.push(v);});
+
+// Alumnos que pagaron este mes (todos los tipos)
+var alumnosPagaron=allActive.filter(function(s){return totalPagadoAlumno(s.id,sm,sy)>0;}).length;
+
+// Media mensual histórica
+var seenTotals={};
+pagos.forEach(function(p){
+  var k=p.mes+'-'+p.yr;
+  if(!seenTotals[k]) seenTotals[k]=0;
+  seenTotals[k]+=(p.cantidad||0);
+});
+var allTotals=Object.values(seenTotals);
 var avg=allTotals.length>0?Math.round(allTotals.reduce(function(a,b){return a+b;},0)/allTotals.length):0;
+var maxMes=allTotals.length>0?Math.max.apply(null,allTotals):0;
 
 var monthOpts=months.map(function(x){
 return '<option value=”'+x.m+'-'+x.y+'”'+(x.m===sm&&x.y===sy?' selected':'')+'>'+MONTHS[x.m]+' '+x.y+'</option>';
@@ -1952,16 +1983,18 @@ return '<div class="moverlay" onclick="ui.statsModal=false;renderM()">'
 +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">'
 +'<div class="sumblk"><div class="sumval" style="color:#1D9E75;">'+total+'€</div><div class="sumlbl">Cobrado</div></div>'
 +'<div class="sumblk"><div class="sumval" style="color:'+(pct>=100?'#1D9E75':pct>=70?'#c07800':'#d63b3b')+';">'+pct+'%</div><div class="sumlbl">Del esperado ('+expected+'€)</div></div>'
-+'<div class="sumblk"><div class="sumval" style="color:#1D9E75;">'+pagados+'</div><div class="sumlbl">Pagados</div></div>'
++'<div class="sumblk"><div class="sumval" style="color:#1D9E75;">'+pagados+'</div><div class="sumlbl">Pagados completo</div></div>'
 +'<div class="sumblk"><div class="sumval" style="color:#c07800;">'+parciales+'</div><div class="sumlbl">Parciales</div></div>'
-+'<div class="sumblk"><div class="sumval" style="color:#d63b3b;">'+pendientes+'</div><div class="sumlbl">Pendientes</div></div>'
-+'<div class="sumblk"><div class="sumval">'+reg.length+'</div><div class="sumlbl">Alumnos activos</div></div>'
++'<div class="sumblk"><div class="sumval" style="color:#d63b3b;">'+pendientes+'</div><div class="sumlbl">Sin pagar</div></div>'
++'<div class="sumblk"><div class="sumval" style="color:#1D9E75;">'+alumnosPagaron+'</div><div class="sumlbl">Pagaron este mes</div></div>'
 +'</div>'
 +'<div style="height:1px;background:var(--border);margin-bottom:16px;"></div>'
-+'<div style="font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Media histórica</div>'
++'<div style="font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Histórico</div>'
 +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
 +'<div class="sumblk"><div class="sumval">'+avg+'€</div><div class="sumlbl">Media mensual</div></div>'
++'<div class="sumblk"><div class="sumval" style="color:#1D9E75;">'+maxMes+'€</div><div class="sumlbl">Mejor mes</div></div>'
 +'<div class="sumblk"><div class="sumval">'+allTotals.length+'</div><div class="sumlbl">Meses con datos</div></div>'
++'<div class="sumblk"><div class="sumval">'+reg.length+'</div><div class="sumlbl">Alumnos regulares</div></div>'
 +'</div>'
 +'</div></div>';
 }
@@ -3121,7 +3154,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.45</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.46</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
