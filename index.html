@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.48</title>
+<title>Flama Workshop v1.4.49</title>
 <style>
 :root{
   --logo-filter: none;
@@ -659,15 +659,24 @@ function sendPagoToMiGestor(sid, mes, yr){
     alert('El envío a MiGestor está desactivado para ' + pMet + '. Actívalo en Ajustes.');
     return;
   }
-  if(p._migestor==='ok'){
-    if(!confirm('Este pago ya se envió a MiGestor. ¿Reenviar?')) return;
+  // Estado actual: si ya está enviado/enviando y sigue pendiente, NO crear otro documento
+  var yaEnviado = (p._migestor==='ok' || p._migestor==='sending') && p._flamaDocId;
+  if(p._migestor==='sending'){
+    alert('Este pago se está enviando. Espera un momento.');
+    return;
+  }
+  if(p._migestor==='confirmed'){
+    alert('Este pago ya fue aprobado en MiGestor. No se puede reenviar (usa editar si necesitas cambiarlo).');
+    return;
+  }
+  if(yaEnviado){
+    if(!confirm('Este pago ya está pendiente en MiGestor. ¿Actualizar los datos del envío existente?')) return;
   } else {
     if(!confirm('¿Enviar este pago a MiGestor?\n\nAlumno: '+s.name+'\nImporte: '+p.cantidad+'€\nMétodo: '+pMet+'\nMes: '+MONTHS[mes]+' '+yr)) return;
   }
   // Estado: enviando
   p._migestor = 'sending';
   save(); render();
-  // Fecha: usar la fecha real de pago si existe, si no el último día del mes
   // Fecha: 1) fechaPago guardada, 2) buscar en historial del alumno, 3) hoy
   var fechaStr = p.fechaPago || '';
   if(!fechaStr && s.history){
@@ -679,6 +688,20 @@ function sendPagoToMiGestor(sid, mes, yr){
   if(!fechaStr) fechaStr = new Date().toISOString().slice(0,10);
   var horaStr = (new Date()).toTimeString().slice(0,5);
   var concepto = p.concepto || ('Clases de cerámica · ' + MONTHS[mes] + ' ' + yr);
+
+  // Si ya existe un documento pendiente, ACTUALIZARLO en vez de crear otro (evita duplicados)
+  if(yaEnviado){
+    updatePendingInMiGestor(p._flamaDocId, {importe:p.cantidad, metodo:pMet, fecha:fechaStr, concepto:concepto})
+    .then(function(){
+      p._migestor='ok';
+      save(); render();
+      var t=document.createElement('div');
+      t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1D9E75;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;';
+      t.textContent='✓ Actualizado en MiGestor'; document.body.appendChild(t); setTimeout(function(){t.remove();},2500);
+    }).catch(function(e){ p._migestor='error'; save(); render(); alert('Error actualizando: '+e.message); });
+    return;
+  }
+
   pushPagoToMiGestor({
     cliente: s.name,
     importe: p.cantidad,
@@ -884,7 +907,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.48';
+  ver.textContent='v1.4.49';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -3180,7 +3203,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.48</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.49</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
