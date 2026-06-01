@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.49</title>
+<title>Flama Workshop v1.4.50</title>
 <style>
 :root{
   --logo-filter: none;
@@ -566,56 +566,59 @@ function syncMiGestorStatuses(){
   .then(function(j){
     if(!j.documents) return;
     var changed=false;
-    j.documents.forEach(function(doc){
-      var f=doc.fields||{};
-      var docUid=f.uid?f.uid.stringValue:'';
-      if(docUid!==uid) return;
-      var status=f.status?f.status.stringValue:'';
-      var processed=f.processed?f.processed.booleanValue:false;
+    // Función para emparejar un documento con un pago
+    function docMatchesPago(f, docId, p){
       var cliente=(f.cliente?f.cliente.stringValue:'').toLowerCase();
       var importe=f.importe?f.importe.doubleValue:0;
       var fecha=f.fecha?f.fecha.stringValue:'';
-      if(!status&&!processed) return;
-      // Buscar el pago correspondiente — comparar cliente + importe + mes/año de la fecha
-      var docId = doc.name.split('/').pop();
       var fechaMes = fecha ? parseInt(fecha.slice(5,7))-1 : -1;
       var fechaYr  = fecha ? parseInt(fecha.slice(0,4))   : -1;
-      pagos.forEach(function(p){
-        // Prioridad 1: comparar por flamaDocId exacto (más fiable)
-        // Pero verificar que el año y mes también coinciden (evita herencia de IDs de meses anteriores)
-        var matchById = p._flamaDocId && p._flamaDocId === docId;
-        if(matchById && fechaYr>0 && p.yr !== fechaYr) matchById=false;
-        if(matchById && fechaMes>=0 && p.mes !== fechaMes) matchById=false;
-        if(!matchById){
-          // Prioridad 2: cliente + importe + fecha exacta + método
-          var s=sts.find(function(x){return x.id===p.sid;});
-          if(!s) return;
-          // Nombre exacto (case insensitive)
-          if(s.name.toLowerCase()!==cliente) return;
-          // Importe exacto
-          if(Math.abs(p.cantidad-importe)>0.01) return;
-          // Año exacto
-          if(fechaYr>0 && p.yr !== fechaYr) return;
-          // Mes exacto
-          if(fechaMes>=0 && p.mes !== fechaMes) return;
-          // Fecha exacta del pago si está disponible
-          if(fecha && p.fechaPago && p.fechaPago !== fecha) return;
-          // Método de pago si coincide (solo rechazar si ambos tienen método y son distintos)
-          var docMetodo=(f.metodo?f.metodo.stringValue:'').toLowerCase();
-          if(docMetodo && p.metodo && p.metodo.toLowerCase()!==docMetodo) return;
-        }
-        // Coincide — actualizar estado
-        if(status==='rejected'&&p._migestor!=='rejected'){
-          p._migestor='rejected';
-          changed=true;
-        } else if(status==='approved'&&p._migestor!=='confirmed'){
-          p._migestor='confirmed';
-          // Guardar el ticket ID si viene en el documento
-          var ticketId=f.ticketId?f.ticketId.stringValue:'';
-          if(ticketId) p._migestorTicketId=ticketId;
-          changed=true;
-        }
+      // Prioridad 1: por flamaDocId exacto (verificando mes/año para evitar herencia)
+      var matchById = p._flamaDocId && p._flamaDocId === docId;
+      if(matchById && fechaYr>0 && p.yr !== fechaYr) matchById=false;
+      if(matchById && fechaMes>=0 && p.mes !== fechaMes) matchById=false;
+      if(matchById) return true;
+      // Prioridad 2: cliente + importe + fecha + método
+      var s=sts.find(function(x){return x.id===p.sid;});
+      if(!s) return false;
+      if(s.name.toLowerCase()!==cliente) return false;
+      if(Math.abs(p.cantidad-importe)>0.01) return false;
+      if(fechaYr>0 && p.yr !== fechaYr) return false;
+      if(fechaMes>=0 && p.mes !== fechaMes) return false;
+      if(fecha && p.fechaPago && p.fechaPago !== fecha) return false;
+      var docMetodo=(f.metodo?f.metodo.stringValue:'').toLowerCase();
+      if(docMetodo && p.metodo && p.metodo.toLowerCase()!==docMetodo) return false;
+      return true;
+    }
+    // Para cada pago, recopilar los estados de TODOS sus documentos y decidir el final.
+    // Prioridad correcta: si ALGUNO está approved -> confirmed. Si hay alguno pendiente
+    // (sin status), el pago SIGUE pendiente (no rejected). Solo rejected si todos rejected.
+    pagos.forEach(function(p){
+      var hayApproved=false, hayRejected=false, hayPendiente=false, hayMatch=false;
+      var ticketId='';
+      j.documents.forEach(function(doc){
+        var f=doc.fields||{};
+        if((f.uid?f.uid.stringValue:'')!==uid) return;
+        var docId=doc.name.split('/').pop();
+        if(!docMatchesPago(f, docId, p)) return;
+        hayMatch=true;
+        var status=f.status?f.status.stringValue:'';
+        var processed=f.processed?f.processed.booleanValue:false;
+        if(status==='approved'){ hayApproved=true; var tid=f.ticketId?f.ticketId.stringValue:''; if(tid) ticketId=tid; }
+        else if(status==='rejected'){ hayRejected=true; }
+        if(!processed) hayPendiente=true; // documento aún sin procesar = pendiente
       });
+      if(!hayMatch) return;
+      var nuevoEstado;
+      if(hayApproved) nuevoEstado='confirmed';
+      else if(hayPendiente) nuevoEstado='ok'; // sigue pendiente de confirmar en MiGestor
+      else if(hayRejected) nuevoEstado='rejected';
+      else return;
+      if(p._migestor!==nuevoEstado){
+        p._migestor=nuevoEstado;
+        if(nuevoEstado==='confirmed'&&ticketId) p._migestorTicketId=ticketId;
+        changed=true;
+      }
     });
     if(changed){ save(); render(); }
   }).catch(function(e){ console.warn('syncMiGestorStatuses error:',e); });
@@ -907,7 +910,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.49';
+  ver.textContent='v1.4.50';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -3203,7 +3206,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.49</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.50</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 var nav=document.querySelector('.bottom-nav');
 if(nav)nav.style.display=isViewer()?'none':'';
