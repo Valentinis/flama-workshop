@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.55</title>
+<title>Flama Workshop v1.4.56</title>
 <style>
 :root{
   --logo-filter: none;
@@ -919,11 +919,12 @@ function profeDeClase(cid, monStr){
   if(profeOvs[key]) return profeOvs[key]; // un override de semana siempre manda
   var email=grupoProfes[cid]||'';
   if(!email) return '';
-  // Suelo de fecha: lo más tardío entre el override global y la fecha de asignación del grupo
   var fecha=classDayDate(cid, monStr);
-  var desde=PROFE_DESDE_GLOBAL||'';
-  if(grupoProfeDesde[cid] && grupoProfeDesde[cid]>desde) desde=grupoProfeDesde[cid];
-  if(desde && fecha && fecha<desde) return ''; // clase anterior a tener el grupo: sin profesor
+  // Suelo de fecha. Mientras el override global esté activo, manda él sobre las fechas de
+  // asignación individuales (esta versión: todos los profes cuentan desde el 1 jun).
+  // Al quitar el override (PROFE_DESDE_GLOBAL=''), pasa a contar la fecha de asignación de cada grupo.
+  var desde = PROFE_DESDE_GLOBAL || grupoProfeDesde[cid] || '';
+  if(desde && fecha && fecha<desde) return ''; // clase anterior al suelo: sin profesor
   return email;
 }
 
@@ -982,8 +983,19 @@ function historialProfe(email, semanasAtras, semanasAdelante){
 function subReqsParaMi(){
   if(!currentUser) return [];
   return subReqs.filter(function(r){
-    return r.estado==='pendiente' && r.solicitante!==currentUser.email;
+    if(r.estado!=='pendiente' || r.solicitante===currentUser.email) return false;
+    // No mostrar las que yo ya he rechazado
+    if(r.rechazos && r.rechazos.indexOf(currentUser.email)!==-1) return false;
+    return true;
   });
+}
+// Otros profesores (con grupo asignado) que podrían cubrir, aparte del solicitante
+function otrosProfesActivos(solicitante){
+  var set={};
+  Object.keys(grupoProfes).forEach(function(cid){ var e=grupoProfes[cid]; if(e) set[e]=true; });
+  listaProfes().forEach(function(e){ if(e) set[e]=true; }); // admin+viewers también cuentan
+  delete set[solicitante];
+  return Object.keys(set);
 }
 // Crear solicitud de sustitución para una clase concreta
 function crearSubReq(cid, fecha){
@@ -1015,6 +1027,20 @@ function cancelarSubReq(reqId){
   var r=subReqs.find(function(x){return x.id===reqId;});
   if(!r) return;
   r.estado='cancelada';
+  save(); render();
+}
+// Rechazar: registra MI rechazo. Si ya nadie más puede cubrirla, pasa a 'sin_cobertura'
+// y le aparece al solicitante en sus propias solicitudes.
+function rechazarSubReq(reqId){
+  if(!currentUser) return;
+  var r=subReqs.find(function(x){return x.id===reqId;});
+  if(!r||r.estado!=='pendiente') return;
+  if(!r.rechazos) r.rechazos=[];
+  if(r.rechazos.indexOf(currentUser.email)===-1) r.rechazos.push(currentUser.email);
+  // ¿Quedan otros profes que no hayan rechazado todavía?
+  var otros=otrosProfesActivos(r.solicitante);
+  var quedan=otros.filter(function(e){ return r.rechazos.indexOf(e)===-1; });
+  if(quedan.length===0){ r.estado='sin_cobertura'; }
   save(); render();
 }
 
@@ -1089,7 +1115,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.55';
+  ver.textContent='v1.4.56';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1788,6 +1814,7 @@ function closeProfeSelector(){var el=document.getElementById('profe-selector-ove
 function openCampana(){
   var pendientes=subReqsParaMi(); // de otros, pendientes
   var mias=subReqs.filter(function(r){return currentUser&&r.solicitante===currentUser.email&&r.estado==='pendiente';});
+  var sinCobertura=subReqs.filter(function(r){return currentUser&&r.solicitante===currentUser.email&&r.estado==='sin_cobertura';});
   var filasOtros=pendientes.map(function(r){
     var c=CLS.find(function(x){return x.id===r.cid;});
     var nombreProfe=profeNombre(r.solicitante);
@@ -1796,7 +1823,10 @@ function openCampana(){
       +'<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;">'+profeAvatar(r.solicitante,28)
       +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text);">'+nombreProfe+' pide sustitución</div>'
       +'<div style="font-size:12px;color:var(--text2);">'+cuando+'</div></div></div>'
-      +'<button onclick="aceptarSubReq(&apos;'+r.id+'&apos;);closeCampana();" style="width:100%;padding:9px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Cubrir esta clase</button>'
+      +'<div style="display:flex;gap:8px;">'
+      +'<button onclick="confirmCubrir(&apos;'+r.id+'&apos;)" style="flex:1;padding:9px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Cubrir esta clase</button>'
+      +'<button onclick="confirmRechazar(&apos;'+r.id+'&apos;)" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:none;color:#b03030;font-size:13px;font-weight:600;cursor:pointer;">No puedo</button>'
+      +'</div>'
       +'</div>';
   }).join('');
   var filasMias=mias.map(function(r){
@@ -1805,11 +1835,21 @@ function openCampana(){
     return '<div style="background:var(--bg-subtle);border-radius:12px;padding:12px;margin-bottom:8px;">'
       +'<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">Pediste sustitución</div>'
       +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+cuando+' · esperando que alguien la cubra</div>'
-      +'<button onclick="cancelarSubReq(&apos;'+r.id+'&apos;);closeCampana();" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:#b03030;font-size:13px;cursor:pointer;">Cancelar solicitud</button>'
+      +'<button onclick="confirmCancelarMia(&apos;'+r.id+'&apos;)" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:#b03030;font-size:13px;cursor:pointer;">Cancelar solicitud</button>'
+      +'</div>';
+  }).join('');
+  var filasSin=sinCobertura.map(function(r){
+    var c=CLS.find(function(x){return x.id===r.cid;});
+    var cuando=(c?c.day+' '+c.start:'')+' · '+fmtFechaCorta(r.fecha);
+    return '<div style="background:#3a1f1f;border:1px solid #6b2e2e;border-radius:12px;padding:12px;margin-bottom:8px;">'
+      +'<div style="font-size:13px;font-weight:600;color:#ff9a8a;margin-bottom:3px;">Nadie puede cubrir esta clase</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+cuando+'</div>'
+      +'<button onclick="confirmCancelarMia(&apos;'+r.id+'&apos;)" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text2);font-size:13px;cursor:pointer;">Descartar aviso</button>'
       +'</div>';
   }).join('');
   var cuerpo='';
-  if(filasOtros){cuerpo+='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:8px 0 6px;">Solicitudes que puedes cubrir</div>'+filasOtros;}
+  if(filasSin){cuerpo+='<div style="font-size:12px;color:#ff9a8a;font-weight:600;margin:8px 0 6px;">⚠ Sin cobertura</div>'+filasSin;}
+  if(filasOtros){cuerpo+='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:14px 0 6px;">Solicitudes que puedes cubrir</div>'+filasOtros;}
   if(filasMias){cuerpo+='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:14px 0 6px;">Tus solicitudes</div>'+filasMias;}
   if(!cuerpo){cuerpo='<div style="text-align:center;color:var(--text3);padding:30px 10px;font-size:14px;">No hay solicitudes de sustitución</div>';}
   var html='<div class="moverlay" onclick="closeCampana()"><div class="msheet" onclick="event.stopPropagation()">'
@@ -1824,6 +1864,40 @@ function openCampana(){
   document.body.appendChild(overlay);
 }
 function closeCampana(){var el=document.getElementById('campana-overlay');if(el)el.remove();}
+// Pop-up de confirmación genérico (overlay encima de la campana)
+function confirmDialog(titulo, msg, txtOk, colorOk, onOk){
+  var prev=document.getElementById('confirm-overlay'); if(prev)prev.remove();
+  var html='<div class="moverlay" style="z-index:9999;" onclick="closeConfirm()"><div class="msheet" onclick="event.stopPropagation()" style="max-width:340px;">'
+    +'<div class="mhandle"></div>'
+    +'<div style="font-size:16px;font-weight:700;color:var(--text);text-align:center;margin-bottom:6px;">'+titulo+'</div>'
+    +'<div style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:16px;line-height:1.4;">'+msg+'</div>'
+    +'<button id="confirm-ok-btn" style="width:100%;padding:12px;border-radius:12px;border:none;background:'+colorOk+';color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;">'+txtOk+'</button>'
+    +'<button onclick="closeConfirm()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;color:var(--text2);font-size:14px;cursor:pointer;">Cancelar</button>'
+    +'</div></div>';
+  var ov=document.createElement('div'); ov.id='confirm-overlay'; ov.innerHTML=html;
+  document.body.appendChild(ov);
+  document.getElementById('confirm-ok-btn').onclick=function(){ closeConfirm(); onOk(); };
+}
+function closeConfirm(){var el=document.getElementById('confirm-overlay');if(el)el.remove();}
+function confirmCubrir(reqId){
+  var r=subReqs.find(function(x){return x.id===reqId;}); if(!r)return;
+  var c=CLS.find(function(x){return x.id===r.cid;});
+  var cuando=(c?c.day+' '+c.start:'')+' · '+fmtFechaCorta(r.fecha);
+  confirmDialog('¿Cubrir esta clase?', 'Pasarás a ser el profesor de:<br><b>'+cuando+'</b>', 'Sí, la cubro', '#1D9E75', function(){
+    aceptarSubReq(reqId); closeCampana();
+  });
+}
+function confirmRechazar(reqId){
+  var r=subReqs.find(function(x){return x.id===reqId;}); if(!r)return;
+  confirmDialog('¿No puedes cubrirla?', 'Se avisará de que no estás disponible. Si nadie más puede, se avisará a quien la pidió.', 'No puedo', '#b03030', function(){
+    rechazarSubReq(reqId); closeCampana(); openCampana();
+  });
+}
+function confirmCancelarMia(reqId){
+  confirmDialog('¿Cancelar solicitud?', 'Se retirará tu petición de sustitución.', 'Cancelar solicitud', '#b03030', function(){
+    cancelarSubReq(reqId); closeCampana(); openCampana();
+  });
+}
 function fmtFechaCorta(fecha){
   if(!fecha)return '';
   var d=new Date(fecha+'T12:00:00');
@@ -3675,7 +3749,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.55</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.56</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 try{updBell();}catch(e){}
 var nav=document.querySelector('.bottom-nav');
