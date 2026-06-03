@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.54</title>
+<title>Flama Workshop v1.4.55</title>
 <style>
 :root{
   --logo-filter: none;
@@ -912,11 +912,19 @@ function profeFoto(email){
   var info=profeInfo[email]||{};
   return info.picture||'';
 }
-// Profesor efectivo de una clase en una semana: override de semana > defecto del grupo
+// Profesor efectivo de una clase en una semana: override de semana > defecto del grupo.
+// Antes del suelo (override global o fecha de asignación del grupo) NO hay profesor.
 function profeDeClase(cid, monStr){
   var key=cid+'_'+monStr;
-  if(profeOvs[key]) return profeOvs[key];
-  return grupoProfes[cid]||'';
+  if(profeOvs[key]) return profeOvs[key]; // un override de semana siempre manda
+  var email=grupoProfes[cid]||'';
+  if(!email) return '';
+  // Suelo de fecha: lo más tardío entre el override global y la fecha de asignación del grupo
+  var fecha=classDayDate(cid, monStr);
+  var desde=PROFE_DESDE_GLOBAL||'';
+  if(grupoProfeDesde[cid] && grupoProfeDesde[cid]>desde) desde=grupoProfeDesde[cid];
+  if(desde && fecha && fecha<desde) return ''; // clase anterior a tener el grupo: sin profesor
+  return email;
 }
 
 // ─── HISTORIAL Y SUSTITUCIONES ─────────────────────────────────────────────────
@@ -964,10 +972,6 @@ function historialProfe(email, semanasAtras, semanasAdelante){
         if(reg.sustituto===email) esSuya=true; // y en el del sustituto como dada
       }
       if(!esSuya) return;
-      // Suelo de fecha: lo más tardío entre el override global y la fecha de asignación del grupo a ESTE profe
-      var desde=PROFE_DESDE_GLOBAL||'';
-      if(grupoProfes[c.id]===email && grupoProfeDesde[c.id] && grupoProfeDesde[c.id]>desde) desde=grupoProfeDesde[c.id];
-      if(desde && fecha<desde) return; // no cuenta antes de tener el grupo asignado
       out.push({cid:c.id, fecha:fecha, monStr:monStr, clase:c, estado:estadoClase(c.id,fecha), reg:reg||null, email:email});
     });
   }
@@ -1085,7 +1089,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.54';
+  ver.textContent='v1.4.55';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1700,16 +1704,32 @@ function profeRowGrupo(cid){
     +'<span style="margin-left:auto;font-size:12px;color:#6b4c1e;font-weight:600;">'+(email?'Cambiar':'Asignar')+'</span>'
     +'</div>';
 }
+// Botón de sustitución para una clase concreta (futura, con profe efectivo)
+function subBtnClase(cid, monStr, efectivo){
+  if(!efectivo || !currentUser) return '';
+  var fecha=classDayDate(cid, monStr);
+  if(!fecha || fecha<today()) return ''; // solo clases futuras
+  // El admin puede pedir por cualquier profe; un viewer solo por sus propias clases
+  var puedo = !isViewer() || currentUser.email===efectivo;
+  if(!puedo) return '';
+  var yaPedida=subReqs.find(function(r){return r.cid===cid&&r.fecha===fecha&&r.estado==='pendiente';});
+  if(yaPedida){
+    return '<div style="margin:-4px 0 10px;font-size:11px;color:#c07800;">Sustitución pedida para esta clase</div>';
+  }
+  return '<div onclick="event.stopPropagation();pedirSustClase('+cid+',&apos;'+monStr+'&apos;)" '
+    +'style="margin:-4px 0 10px;font-size:12px;color:#6b4c1e;font-weight:600;cursor:pointer;">Pedir sustitución para esta clase</div>';
+}
 // Fila de profesor de la semana en la pantalla Clases
 function profeRowClase(cid, monStr){
   var efectivo=profeDeClase(cid, monStr);
   var key=cid+'_'+monStr;
   var esOverride=!!profeOvs[key];
   if(isViewer()){
-    // Viewer: solo ve quién da la clase, sin editar
+    // Viewer: ve quién da la clase y puede pedir sustitución si es la suya
     if(!efectivo) return '';
     return '<div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;font-size:13px;color:var(--text2);">'
-      +profeAvatarLink(efectivo,20)+' <span style="color:var(--text);font-weight:500;">'+profeNombre(efectivo)+'</span></div>';
+      +profeAvatarLink(efectivo,20)+' <span style="color:var(--text);font-weight:500;">'+profeNombre(efectivo)+'</span></div>'
+      +subBtnClase(cid,monStr,efectivo);
   }
   var contenido = efectivo
     ? profeAvatarLink(efectivo,20)+' <span style="font-size:13px;color:var(--text);font-weight:500;">'+profeNombre(efectivo)+'</span>'
@@ -1719,7 +1739,8 @@ function profeRowClase(cid, monStr){
     +'<span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;">Profe</span>'
     +contenido
     +'<span style="margin-left:auto;font-size:12px;color:#6b4c1e;font-weight:600;">Cambiar</span>'
-    +'</div>';
+    +'</div>'
+    +subBtnClase(cid,monStr,efectivo);
 }
 // Selector de profesor (overlay). monStr=null -> asigna el defecto del grupo; con monStr -> override de semana
 function openProfeSelector(cid, monStr){
@@ -1877,6 +1898,16 @@ function openProfeHist(email){
   document.body.appendChild(overlay);
 }
 function closeProfeHist(){var el=document.getElementById('profe-hist-overlay');if(el)el.remove();}
+function pedirSustClase(cid, monStr){
+  cid=+cid;
+  var fecha=classDayDate(cid, monStr);
+  if(!fecha) return;
+  crearSubReq(cid, fecha);
+  save();
+  try{updBell();}catch(e){}
+  render();
+}
+
 function marcarNoDada(cid,fecha,email){
   setEstadoClase(cid,fecha,'cancelada',{motivo:'no dada'});
   closeProfeHist();openProfeHist(email);
@@ -3644,7 +3675,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.54</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.55</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 try{updBell();}catch(e){}
 var nav=document.querySelector('.bottom-nav');
