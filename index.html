@@ -6,7 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Flama Workshop v1.4.56</title>
+<title>Flama Workshop v1.4.60</title>
 <style>
 :root{
   --logo-filter: none;
@@ -989,6 +989,22 @@ function subReqsParaMi(){
     return true;
   });
 }
+// Respuestas a MIS solicitudes que aún no he visto: aceptadas (alguien la cubre) o sin cobertura
+function avisosParaMi(){
+  if(!currentUser) return [];
+  return subReqs.filter(function(r){
+    if(r.solicitante!==currentUser.email) return false;
+    if(r.estado!=='aceptada' && r.estado!=='sin_cobertura') return false;
+    return !r.vistoPorSolicitante;
+  });
+}
+// Marcar un aviso como visto (deja de contar en la campana)
+function marcarAvisoVisto(reqId){
+  var r=subReqs.find(function(x){return x.id===reqId;});
+  if(!r) return;
+  r.vistoPorSolicitante=true;
+  save(); render();
+}
 // Otros profesores (con grupo asignado) que podrían cubrir, aparte del solicitante
 function otrosProfesActivos(solicitante){
   var set={};
@@ -1115,7 +1131,7 @@ function renderLogin(){
 
   var ver=d.createElement('div');
   ver.style.cssText='position:absolute;bottom:20px;font-size:10px;color:'+(isDark?'#555':'#aaa')+';letter-spacing:0.05em;';
-  ver.textContent='v1.4.56';
+  ver.textContent='v1.4.60';
   wrap.appendChild(ver);
 
   d.body.innerHTML='';
@@ -1814,7 +1830,7 @@ function closeProfeSelector(){var el=document.getElementById('profe-selector-ove
 function openCampana(){
   var pendientes=subReqsParaMi(); // de otros, pendientes
   var mias=subReqs.filter(function(r){return currentUser&&r.solicitante===currentUser.email&&r.estado==='pendiente';});
-  var sinCobertura=subReqs.filter(function(r){return currentUser&&r.solicitante===currentUser.email&&r.estado==='sin_cobertura';});
+  var avisos=avisosParaMi(); // respuestas a mis solicitudes (aceptadas / sin cobertura) no vistas
   var filasOtros=pendientes.map(function(r){
     var c=CLS.find(function(x){return x.id===r.cid;});
     var nombreProfe=profeNombre(r.solicitante);
@@ -1838,17 +1854,27 @@ function openCampana(){
       +'<button onclick="confirmCancelarMia(&apos;'+r.id+'&apos;)" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:#b03030;font-size:13px;cursor:pointer;">Cancelar solicitud</button>'
       +'</div>';
   }).join('');
-  var filasSin=sinCobertura.map(function(r){
+  var filasAvisos=avisos.map(function(r){
     var c=CLS.find(function(x){return x.id===r.cid;});
     var cuando=(c?c.day+' '+c.start:'')+' · '+fmtFechaCorta(r.fecha);
-    return '<div style="background:#3a1f1f;border:1px solid #6b2e2e;border-radius:12px;padding:12px;margin-bottom:8px;">'
-      +'<div style="font-size:13px;font-weight:600;color:#ff9a8a;margin-bottom:3px;">Nadie puede cubrir esta clase</div>'
-      +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+cuando+'</div>'
-      +'<button onclick="confirmCancelarMia(&apos;'+r.id+'&apos;)" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text2);font-size:13px;cursor:pointer;">Descartar aviso</button>'
-      +'</div>';
+    if(r.estado==='aceptada'){
+      var quien=profeNombre(r.aceptadaPor);
+      return '<div style="background:#16332a;border:1px solid #1D9E75;border-radius:12px;padding:12px;margin-bottom:8px;">'
+        +'<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;">'+profeAvatar(r.aceptadaPor,28)
+        +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#8fe3c0;">'+quien+' cubrirá tu clase</div>'
+        +'<div style="font-size:12px;color:var(--text2);">'+cuando+'</div></div></div>'
+        +'<button onclick="marcarAvisoVisto(&apos;'+r.id+'&apos;);closeCampana();openCampana();" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text2);font-size:13px;cursor:pointer;">Entendido</button>'
+        +'</div>';
+    } else { // sin_cobertura
+      return '<div style="background:#3a1f1f;border:1px solid #6b2e2e;border-radius:12px;padding:12px;margin-bottom:8px;">'
+        +'<div style="font-size:13px;font-weight:600;color:#ff9a8a;margin-bottom:3px;">Nadie puede cubrir esta clase</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+cuando+'</div>'
+        +'<button onclick="marcarAvisoVisto(&apos;'+r.id+'&apos;);closeCampana();openCampana();" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text2);font-size:13px;cursor:pointer;">Descartar aviso</button>'
+        +'</div>';
+    }
   }).join('');
   var cuerpo='';
-  if(filasSin){cuerpo+='<div style="font-size:12px;color:#ff9a8a;font-weight:600;margin:8px 0 6px;">⚠ Sin cobertura</div>'+filasSin;}
+  if(filasAvisos){cuerpo+='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:8px 0 6px;">Respuestas a tus solicitudes</div>'+filasAvisos;}
   if(filasOtros){cuerpo+='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:14px 0 6px;">Solicitudes que puedes cubrir</div>'+filasOtros;}
   if(filasMias){cuerpo+='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:14px 0 6px;">Tus solicitudes</div>'+filasMias;}
   if(!cuerpo){cuerpo='<div style="text-align:center;color:var(--text3);padding:30px 10px;font-size:14px;">No hay solicitudes de sustitución</div>';}
@@ -1908,7 +1934,7 @@ function fmtFechaCorta(fecha){
 
 // ─── MODAL HISTORIAL DEL PROFESOR ───────────────────────────────────────────
 function openProfeHist(email){
-  var hist=historialProfe(email,12,4);
+  var hist=historialProfe(email,26,4);
   var nombre=profeNombre(email);
   var hoy=today();
   // Separar pasadas y próximas
@@ -1955,6 +1981,47 @@ function openProfeHist(email){
       +'<div style="text-align:right;">'+badgeEstado(h)+(acciones?'<div style="margin-top:4px;">'+acciones+'</div>':'')+'</div>'
       +'</div>';
   }
+  // Resumen por mes (solo clases pasadas) para facturación
+  var meses={};
+  function addDia(o, dia){ o[dia]=(o[dia]||0)+1; }
+  pasadas.forEach(function(h){
+    var ym=h.fecha.slice(0,7); // YYYY-MM
+    if(!meses[ym]) meses[ym]={dada:0, susAfavor:0, noDada:0, porDia:{}};
+    var e=h.estado, dia=h.clase.day;
+    if(e==='dada'){ meses[ym].dada++; addDia(meses[ym].porDia, dia); }
+    else if(e==='sustituida'){
+      if(h.reg && h.reg.sustituto===email){ meses[ym].dada++; addDia(meses[ym].porDia, dia); } // la cubrió él
+      else meses[ym].susAfavor++;                                  // la suya la dio otro: no le cuenta
+    }
+    else if(e==='cancelada'){ meses[ym].noDada++; }
+  });
+  var mesesOrden=Object.keys(meses).sort(function(a,b){return b.localeCompare(a);});
+  var nombresMes=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var cuerpoResumen='';
+  if(mesesOrden.length){
+    cuerpoResumen='<div style="font-size:12px;color:var(--text2);font-weight:600;margin:14px 0 6px;">Resumen por mes</div>';
+    mesesOrden.forEach(function(ym){
+      var m=meses[ym];
+      var partes=new Date(ym+'-01T12:00:00');
+      var etq=nombresMes[partes.getMonth()]+' '+partes.getFullYear();
+      var extra='';
+      if(m.susAfavor) extra+=' · <span style="color:#c07800;">'+m.susAfavor+' la dio otro</span>';
+      if(m.noDada) extra+=' · <span style="color:#b03030;">'+m.noDada+' sin dar</span>';
+      // Desglose por día de semana, en orden natural
+      var ordenDias=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+      var partesDia=ordenDias.filter(function(d){return m.porDia[d];}).map(function(d){
+        return '<span style="color:var(--text);font-weight:600;">'+m.porDia[d]+'</span> '+d.toLowerCase();
+      });
+      var lineaDias=partesDia.length?partesDia.join(' · '):'';
+      cuerpoResumen+='<div style="display:flex;align-items:baseline;gap:8px;padding:9px 11px 5px;margin-bottom:2px;background:var(--bg-subtle);border-radius:10px 10px 0 0;">'
+        +'<span style="font-size:13px;color:var(--text);text-transform:capitalize;flex:1;">'+etq+'</span>'
+        +'<span style="font-size:18px;font-weight:700;color:#1D9E75;">'+m.dada+'</span>'
+        +'<span style="font-size:11px;color:var(--text2);">clases dadas</span>'
+        +'</div>'
+        +(lineaDias?'<div style="font-size:11px;color:var(--text2);padding:0 11px 8px;margin-bottom:6px;background:var(--bg-subtle);border-radius:0 0 10px 10px;">'+lineaDias+'</div>':'<div style="margin-bottom:6px;"></div>')
+        +(extra?'<div style="font-size:11px;color:var(--text2);margin:-4px 0 8px 11px;">'+extra.replace(/^ · /,'')+'</div>':'');
+    });
+  }
   var cuerpoFut=futuras.length?'<div style="font-size:12px;color:var(--text2);font-weight:600;margin:6px 0;">Próximas</div>'+futuras.map(fila).join(''):'';
   var cuerpoPas=pasadas.length?'<div style="font-size:12px;color:var(--text2);font-weight:600;margin:16px 0 6px;">Anteriores</div>'+pasadas.map(fila).join(''):'';
   if(!futuras.length&&!pasadas.length){cuerpoPas='<div style="text-align:center;color:var(--text3);padding:30px 10px;font-size:14px;">Sin clases asignadas</div>';}
@@ -1963,7 +2030,7 @@ function openProfeHist(email){
     +'<div style="display:flex;align-items:center;gap:11px;">'+profeAvatar(email,42)
     +'<div><div class="mname" style="margin:0;">'+nombre+'</div>'
     +'<div style="font-size:12px;color:var(--text2);">'+dadas+' clases dadas (últimas 12 sem.)</div></div></div>'
-    +'<div style="margin-top:14px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">'+cuerpoFut+cuerpoPas+'</div>'
+    +'<div style="margin-top:14px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">'+cuerpoResumen+cuerpoFut+cuerpoPas+'</div>'
     +'<button onclick="closeProfeHist()" style="margin-top:12px;width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;color:var(--text2);font-size:14px;cursor:pointer;">Cerrar</button>'
     +'</div></div>';
   var overlay=document.createElement('div');
@@ -1973,6 +2040,16 @@ function openProfeHist(email){
 }
 function closeProfeHist(){var el=document.getElementById('profe-hist-overlay');if(el)el.remove();}
 function pedirSustClase(cid, monStr){
+  cid=+cid;
+  var fecha=classDayDate(cid, monStr);
+  if(!fecha) return;
+  var c=CLS.find(function(x){return x.id===cid;});
+  var cuando=(c?c.day+' '+c.start:'')+' · '+fmtFechaCorta(fecha);
+  confirmDialog('¿Pedir sustitución?', 'Avisarás a los demás profesores de que no puedes dar:<br><b>'+cuando+'</b>', 'Pedir sustitución', '#6b4c1e', function(){
+    doPedirSustClase(cid, monStr);
+  });
+}
+function doPedirSustClase(cid, monStr){
   cid=+cid;
   var fecha=classDayDate(cid, monStr);
   if(!fecha) return;
@@ -3740,7 +3817,7 @@ function updBell(){
   // La campana solo se muestra si hay usuario logueado (admin o viewer profesor)
   if(!currentUser){btn.style.display='none';return;}
   btn.style.display='flex';
-  var n=subReqsParaMi().length;
+  var n=subReqsParaMi().length + avisosParaMi().length;
   if(n>0){badge.style.display='flex';badge.textContent=n;}
   else{badge.style.display='none';}
 }
@@ -3749,7 +3826,7 @@ var lb=document.getElementById('logout-bar');
 if(lb&&currentUser){
   var firstName=currentUser.name?currentUser.name.split(' ')[0]:currentUser.email.split('@')[0];
   var pic=currentUser.picture?'<img src="'+currentUser.picture+'" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">':'';
-  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.56</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
+  lb.innerHTML='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:3px 12px 0;">'    +'<span style="font-size:10px;color:var(--text3);opacity:0.6;">v1.4.60</span>'    +'<span style="font-size:11px;color:var(--text2);">'+firstName+'</span>'    +'<div onclick="openSettings()" style="cursor:pointer;border-radius:50%;overflow:hidden;width:28px;height:28px;flex-shrink:0;">'+(currentUser.picture?'<img src="'+currentUser.picture+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">':'<div style="width:28px;height:28px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">'+firstName[0].toUpperCase()+'</div>')+'</div>'    +'</div>';
 }
 try{updBell();}catch(e){}
 var nav=document.querySelector('.bottom-nav');
